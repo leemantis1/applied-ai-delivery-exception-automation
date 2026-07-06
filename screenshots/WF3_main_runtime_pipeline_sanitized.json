@@ -1,0 +1,1863 @@
+{
+  "name": "P3 - Workflow 3 - Main Runtime Delivery Exception Pipeline (Sanitized - Review Needed)",
+  "nodes": [
+    {
+      "parameters": {
+        "options": {}
+      },
+      "id": "sanitized-node-001",
+      "name": "When chat message received",
+      "type": "@n8n/n8n-nodes-langchain.chatTrigger",
+      "typeVersion": 1.1,
+      "position": [
+        -1056,
+        -576
+      ]
+    },
+    {
+      "parameters": {
+        "inputSource": "jsonExample",
+        "jsonExample": "{\n  \"target_shipment_id\": \"SHP-002\"\n}"
+      },
+      "id": "sanitized-node-002",
+      "name": "Run from Eval",
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1.1,
+      "position": [
+        -1056,
+        -352
+      ]
+    },
+    {
+      "parameters": {
+        "fileSelector": "REPLACE_WITH_SHARED_DATA_PATH/exception_resolution_playbook.pdf",
+        "options": {}
+      },
+      "id": "sanitized-node-003",
+      "name": "Load Playbook PDF",
+      "type": "n8n-nodes-base.readWriteFile",
+      "typeVersion": 1,
+      "position": [
+        -800,
+        -736
+      ]
+    },
+    {
+      "parameters": {
+        "mode": "insert",
+        "memoryKey": "exception_resolution_playbook"
+      },
+      "id": "sanitized-node-004",
+      "name": "Build Playbook Vector Store",
+      "type": "@n8n/n8n-nodes-langchain.vectorStoreInMemory",
+      "typeVersion": 1,
+      "position": [
+        -496,
+        -736
+      ]
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "id": "sanitized-node-005",
+      "name": "Default Data Loader",
+      "type": "@n8n/n8n-nodes-langchain.documentDefaultDataLoader",
+      "typeVersion": 1,
+      "position": [
+        -496,
+        -944
+      ]
+    },
+    {
+      "parameters": {
+        "chunkSize": 700,
+        "chunkOverlap": 100,
+        "options": {}
+      },
+      "id": "sanitized-node-006",
+      "name": "Recursive Character Text Splitter",
+      "type": "@n8n/n8n-nodes-langchain.textSplitterRecursiveCharacterTextSplitter",
+      "typeVersion": 1,
+      "position": [
+        -784,
+        -912
+      ]
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "id": "sanitized-node-007",
+      "name": "Embeddings OpenAI",
+      "type": "@n8n/n8n-nodes-langchain.embeddingsOpenAi",
+      "typeVersion": 1.2,
+      "position": [
+        -192,
+        -736
+      ]
+    },
+    {
+      "parameters": {
+        "fileSelector": "REPLACE_WITH_SHARED_DATA_PATH/delivery_logs.csv",
+        "options": {}
+      },
+      "id": "sanitized-node-008",
+      "name": "Load Delivery Log CSV",
+      "type": "n8n-nodes-base.readWriteFile",
+      "typeVersion": 1,
+      "position": [
+        -800,
+        -432
+      ]
+    },
+    {
+      "parameters": {
+        "options": {
+          "headerRow": true
+        }
+      },
+      "id": "sanitized-node-009",
+      "name": "Extract Log Rows",
+      "type": "n8n-nodes-base.extractFromFile",
+      "typeVersion": 1,
+      "position": [
+        -544,
+        -432
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "9f001e82-0ff6-4cc8-ad20-7cbd97fdacd3",
+              "name": "target_shipment_id",
+              "value": "={{ String((($('Run from Eval').isExecuted ? $('Run from Eval').first().json.target_shipment_id : String($('When chat message received').first().json.chatInput || '').match(/SHP-\\d{3}/i)?.[0]) || 'SHP-002')).replace(/^=/, '').toUpperCase() }}",
+              "type": "string"
+            }
+          ]
+        },
+        "includeOtherFields": true,
+        "options": {}
+      },
+      "id": "sanitized-node-010",
+      "name": "Select Target Shipment",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -272,
+        -432
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "244ea8aa-9c4f-4fb9-a68f-708b5853c57a",
+              "leftValue": "={{ $json.shipment_id }}",
+              "rightValue": "={{ $json.target_shipment_id }}",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "sanitized-node-011",
+      "name": "Keep Target Shipment Rows",
+      "type": "n8n-nodes-base.filter",
+      "typeVersion": 2.2,
+      "position": [
+        -16,
+        -432
+      ]
+    },
+    {
+      "parameters": {
+        "aggregate": "aggregateAllItemData",
+        "destinationFieldName": "rows",
+        "options": {}
+      },
+      "id": "sanitized-node-012",
+      "name": "Collect Shipment Rows",
+      "type": "n8n-nodes-base.aggregate",
+      "typeVersion": 1,
+      "position": [
+        256,
+        -432
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "31e1e902-22b8-44a2-a86b-df3e8eb4a30f",
+              "name": "rows",
+              "value": "={{ $json.rows }}",
+              "type": "array"
+            },
+            {
+              "id": "180d9769-60d5-4617-99d7-51951b878d1c",
+              "name": "shipment_id",
+              "value": "={{ $json.rows[0].shipment_id }}",
+              "type": "string"
+            },
+            {
+              "id": "0bb15890-4677-47dc-bb3e-3b2ceab43528",
+              "name": "customer_id",
+              "value": "={{ $json.rows[0].customer_id }}",
+              "type": "string"
+            },
+            {
+              "id": "d0b76ff3-8792-41da-bcd5-7b3e642c2ae8",
+              "name": "delivery_address",
+              "value": "={{ $json.rows[0].delivery_address }}",
+              "type": "string"
+            },
+            {
+              "id": "cf62404f-ba39-4e21-a60c-5efbeb094c11",
+              "name": "zip_code",
+              "value": "={{ ($json.rows[0].delivery_address.match(/\\d{5}/) || [\"\"])[0] }}",
+              "type": "string"
+            },
+            {
+              "id": "cef10b39-a601-4203-8064-bea789332733",
+              "name": "status_code",
+              "value": "={{ $json.rows[0].status_code }}",
+              "type": "string"
+            },
+            {
+              "id": "aa8f6033-f5e0-4b78-a9be-503246b55137",
+              "name": "status_description",
+              "value": "={{ $json.rows[0].status_description }}",
+              "type": "string"
+            },
+            {
+              "id": "6d1dde28-a7b6-4734-b81a-30e5ace4c73a",
+              "name": "package_type",
+              "value": "={{ $json.rows[0].package_type }}",
+              "type": "string"
+            },
+            {
+              "id": "2d573b96-66ce-4fcb-a73a-343285e42638",
+              "name": "package_size",
+              "value": "={{ $json.rows[0].package_size }}",
+              "type": "string"
+            },
+            {
+              "id": "5b7d375c-e01f-42cf-94f0-d72e246441d3",
+              "name": "attempt_number",
+              "value": "={{ Number($json.rows[0].attempt_number || 0) }}",
+              "type": "number"
+            },
+            {
+              "id": "4440dd30-bf77-48ab-a594-191c277ae2b5",
+              "name": "is_duplicate_scan",
+              "value": "={{ $json.rows[0].is_duplicate_scan }}",
+              "type": "boolean"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "sanitized-node-013",
+      "name": "Shape Runtime Input",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        512,
+        -432
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "9abb15d9-489d-4ded-a994-b68d5dfafab8",
+              "name": "consolidated_event",
+              "value": "={{ (() => { const rows=$json.rows||[]; const uniq=rows.filter(r=>String(r.is_duplicate_scan)!=='True' && String(r.is_duplicate_scan)!=='true'); const primary=uniq.reduce((a,b)=> (Number(b.attempt_number)>Number(a.attempt_number)?b:a), uniq[0]||rows[0]||{}); const notes=uniq.filter(r=>r!==primary).map(r=>'Attempt '+r.attempt_number+': '+r.status_description); return { shipment_id:primary.shipment_id, timestamp:primary.timestamp, status_code:primary.status_code, status_description:primary.status_description, customer_id:primary.customer_id, delivery_address:primary.delivery_address, package_type:primary.package_type, package_size:primary.package_size, attempt_number:Number(primary.attempt_number), prior_attempt_notes:notes, total_rows:rows.length, duplicates_removed:rows.length-uniq.length }; })() }}",
+              "type": "object"
+            },
+            {
+              "id": "7dfca325-0493-486c-9778-7c3cac3b89bf",
+              "name": "zip_code",
+              "value": "={{ (($json.rows||[]).slice(-1)[0]||{}).delivery_address ? (($json.rows.reduce((a,b)=>Number(b.attempt_number)>Number(a.attempt_number)?b:a)).delivery_address.split(',').slice(-1)[0]||'').trim() : '' }}",
+              "type": "string"
+            },
+            {
+              "id": "e7a042f3-59e1-402b-96e0-c70db4020307",
+              "name": "revision_count",
+              "value": 0,
+              "type": "number"
+            },
+            {
+              "id": "bbf89a0d-992b-4a9b-92b6-431143f677bc",
+              "name": "critic_feedback",
+              "value": "",
+              "type": "string"
+            },
+            {
+              "id": "4952d8e9-9173-4d25-bbd7-cefd54e3dc03",
+              "name": "escalated",
+              "value": false,
+              "type": "boolean"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "sanitized-node-014",
+      "name": "Preprocess + Consolidate",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        768,
+        -432
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "38ef4831-0ecd-44c5-8b23-e9c8ef567b9c",
+              "leftValue": "={{ ['ignore previous instructions','ignore all instructions','system prompt','developer message','tool override','bypass policy'].some(k => ($json.consolidated_event.status_description||'').toLowerCase().includes(k)) }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "sanitized-node-015",
+      "name": "Screen Prompt Injection",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        1024,
+        -432
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "0d147f12-6a50-4815-b6e5-7975a5d3f490",
+              "leftValue": "={{ ['DELIVERED','IN_TRANSIT','OUT_FOR_DELIVERY','SCANNED'].includes($json.consolidated_event.status_code) && !['damage','wrong','suspicious','overdue','missing','unexpected','misroute','lost','stolen','abandoned','leak','crush','broke','delay','late','fraud'].some(k => ($json.consolidated_event.status_description||'').toLowerCase().includes(k)) }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "sanitized-node-016",
+      "name": "Screen Routine Events",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        1296,
+        -384
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "446be8eb-a1e3-41dd-b1b8-5fee431aecc5",
+              "name": "shipment_id",
+              "value": "={{ $json.consolidated_event.shipment_id }}",
+              "type": "string"
+            },
+            {
+              "id": "0f97d308-0c57-4008-81ec-8c4c7d53b6eb",
+              "name": "is_exception",
+              "value": "NO",
+              "type": "string"
+            },
+            {
+              "id": "14219ce7-0e40-414e-ae90-6c5419d3b00e",
+              "name": "resolution",
+              "value": "N/A",
+              "type": "string"
+            },
+            {
+              "id": "597d2c70-f6d8-4ea1-b36b-e4ca41b799bf",
+              "name": "escalated",
+              "value": false,
+              "type": "boolean"
+            },
+            {
+              "id": "de35e7ac-a0ba-49ad-9260-da3925f26371",
+              "name": "tone_label",
+              "value": "N/A",
+              "type": "string"
+            },
+            {
+              "id": "c55c9bda-57d5-4d14-8783-af6a1fd31920",
+              "name": "customer_message",
+              "value": "",
+              "type": "string"
+            },
+            {
+              "id": "119f658e-60d5-4a3e-a263-1a59ce10929b",
+              "name": "rationale",
+              "value": "={{ $json.consolidated_event.status_code === \"SCANNED\" || $json.consolidated_event.status_code === \"DELIVERED\" ? \"Routine operational noise filtered before agent execution.\" : \"Input stopped by guardrail before agent execution.\" }}",
+              "type": "string"
+            },
+            {
+              "id": "0ae68559-100b-4ffb-80df-3ebfc934275b",
+              "name": "tools_used",
+              "value": "={{ [] }}",
+              "type": "array"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "sanitized-node-017",
+      "name": "Guardrail Finalize",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        1504,
+        -592
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Deterministic escalation rule engine.\n// Reads fields from top-level OR nested consolidated_event.\nconst out = [];\nfor (const item of $input.all()) {\n  const j = item.json;\n  let ce = j.consolidated_event;\n  if (typeof ce === 'string') { try { ce = JSON.parse(ce); } catch (e) { ce = {}; } }\n  ce = ce || {};\n  const d = {\n    status_description: j.status_description ?? ce.status_description ?? '',\n    attempt_number: j.attempt_number ?? ce.attempt_number,\n    package_type: j.package_type ?? ce.package_type,\n    status_code: j.status_code ?? ce.status_code,\n    customer_tier: j.customer_tier ?? ce.customer_tier ?? 'STANDARD',\n    exceptions_last_90d: j.exceptions_last_90d ?? ce.exceptions_last_90d ?? 0,\n  };\n  const desc = String(d.status_description || '').toLowerCase();\n  const triggers = [];\n  if (Number(d.attempt_number) >= 3) triggers.push('AUTOMATIC: 3rd failed delivery attempt');\n  if (d.customer_tier === 'VIP' && Number(d.exceptions_last_90d) >= 3) triggers.push(`AUTOMATIC: VIP customer with ${d.exceptions_last_90d} exceptions in 90d (>=3)`);\n  if (d.status_code === 'DAMAGED' && d.package_type === 'PERISHABLE') triggers.push('AUTOMATIC: Damaged perishable package');\n  if (d.status_code === 'WEATHER_DELAY' && d.package_type === 'PERISHABLE') {\n    const m = desc.match(/(\\d+(?:\\.\\d+)?)\\s*(?:hr|hour|hours)/);\n    if (m && parseFloat(m[1]) > 4) triggers.push(`AUTOMATIC: Perishable with ${parseFloat(m[1])}hr delay (>4hr threshold)`);\n  }\n  if (d.status_code === 'ADDRESS_ISSUE' && ['vacant','demolished','construction site','empty lot'].some(k => desc.includes(k))) triggers.push('AUTOMATIC: Potential fraud - address is vacant/demolished');\n  if (d.customer_tier === 'STANDARD' && Number(d.exceptions_last_90d) > 5) triggers.push(`DISCRETIONARY: Standard customer with ${d.exceptions_last_90d} exceptions in 90d (>5)`);\n  if (d.customer_tier === 'PREMIUM' && d.package_type === 'PERISHABLE' && d.status_code === 'WEATHER_DELAY') triggers.push('DISCRETIONARY: Premium customer with perishable in weather delay');\n  out.push({ json: { ...j, escalation_signals: { triggers, has_triggers: triggers.length > 0, trigger_count: triggers.length, has_automatic: triggers.some(x => x.startsWith('AUTOMATIC')) }, tools_used_seed: ['check_escalation_rules'] }});\n}\nreturn out;"
+      },
+      "id": "sanitized-node-018",
+      "name": "Evaluate Escalation Rules",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1536,
+        -368
+      ]
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "={{ JSON.stringify($json) }}",
+        "options": {
+          "systemMessage": "You are the Resolution Agent for a last-mile delivery exception pipeline.\n\nMission:\nDetermine whether the consolidated shipment event is a real actionable exception. If it is, select the correct resolution action and escalation flag using the operation playbook, customer profile, locker eligibility, package constraints, and deterministic escalation signals.\n\nInputs you will receive:\n\n* consolidated_event: one deduplicated shipment event chosen from delivery_logs.csv.\n* zip_code: extracted from delivery_address.\n* escalation_signals: deterministic trigger output from the check_escalation_rules step.\n* critic_feedback: optional prior critic feedback if this is a revision.\n\nRequired tool behavior:\n\n1. Always call Tool_customer_profile_lookup with include_pii=false before deciding. Use tier, preferred_channel, exceptions_last_90d, and active_credit. Do not use customer name in this agent.\n2. Customer profile escalation rules are mandatory:\n   * If Tool_customer_profile_lookup returns tier=VIP and exceptions_last_90d is 3 or greater, escalation_required must be true and escalation_type must be AUTOMATIC, even if escalation_signals says no deterministic escalation trigger was met.\n   * If Tool_customer_profile_lookup returns tier=STANDARD and exceptions_last_90d is greater than 5, escalation_required must be true and escalation_type must be DISCRETIONARY when no automatic escalation trigger applies.\n   * If Tool_customer_profile_lookup returns tier=PREMIUM with a perishable weather delay greater than 2 hours, escalation_required must be true and escalation_type must be DISCRETIONARY when no automatic escalation trigger applies.\n   * If both automatic and discretionary escalation triggers apply, AUTOMATIC takes precedence.\n   * For any automatic or discretionary escalation, include Playbook: Escalation Matrix in playbook_citation.\n   * Do not say \"no escalation trigger met\" when a customer profile escalation rule applies.\n3. Evaluate locker feasibility for exception cases by calling Tool_locker_availability with zip_code and package_size when locker reroute is possible or relevant. Do not reroute perishables to lockers.\n4. For ATTEMPTED cases with attempt_number >= 2, always call Tool_locker_availability using zip_code and package_size unless the package is PERISHABLE. Include Tool_locker_availability in tools_used when called.\n5. For third failed delivery attempts, always call Tool_locker_availability unless the package is PERISHABLE.\n6. Treat check_escalation_rules as authoritative for attempt-based, perishable damage/weather, fraud, and other deterministic signals, but also apply customer-tier escalation rules from the customer profile when the deterministic node lacks those fields.\n7. Cite playbook rules using only the approved citation labels listed below.\n8. Never include Tool_locker_availability in tools_used unless the tool was actually called.\n\nDecision rules:\n\n* Routine statuses DELIVERED, IN_TRANSIT, OUT_FOR_DELIVERY, SCANNED with no concerning language are not exceptions and must return is_exception=NO, classification=ROUTINE, resolution=N/A, escalation_required=false, escalation_type=NONE.\n* ADDRESS_ISSUE: if building/street not found or missing unit, hold/contact customer and RESCHEDULE after verification. Clearly invalid, vacant, demolished, or fraud-like addresses require escalation/fraud review.\n* DAMAGED: moderate or severe damage should REPLACE. FRAGILE lowers damage threshold. Damaged PERISHABLE must REPLACE and escalate.\n* REFUSED: RETURN_TO_SENDER unless address mismatch is actually the root cause.\n* WEATHER_DELAY: PERISHABLE with delay greater than 4 hours must REPLACE and escalate; non-perishable or standard generally communicates updated ETA.\n* REROUTE_TO_LOCKER: only if locker is eligible by zip, package size, capacity, and non-perishable constraint. If the intended resolution is locker but the only local locker is FULL, unavailable, or no eligible locker is found, still return REROUTE_TO_LOCKER when the shipment pattern supports locker reroute, but set escalation_required=true and note that a supervisor must find an alternative locker or override path.\n\nATTEMPTED shipment rules:\n\n* If attempt_number is 1, normally return resolution=RESCHEDULE unless another rule is more specific.\n* If attempt_number is 2, call Tool_locker_availability using zip_code and package_size unless the package is PERISHABLE.\n* If attempt_number is 2 and locker availability is available, eligible, compatible, and appropriate, consider resolution=REROUTE_TO_LOCKER.\n* If attempt_number is 2 and locker availability is unavailable, FULL, incompatible, empty, not eligible, or not confirmed, return resolution=RESCHEDULE and explain that redelivery is the correct path because locker reroute is not currently available.\n* If attempt_number is 2 and the customer profile returns tier=VIP with exceptions_last_90d >= 3, return escalation_required=true and escalation_type=AUTOMATIC.\n* If attempt_number is 2 and the customer profile returns tier=STANDARD with exceptions_last_90d > 5 and no automatic escalation trigger applies, return escalation_required=true and escalation_type=DISCRETIONARY.\n* If attempt_number is 2 and STANDARD exceptions_last_90d > 5 applies, do not say no escalation trigger was met. State that the standard customer history meets the discretionary escalation threshold.\n* If attempt_number is 3 or greater, classify as ATTEMPTED and set escalation_required=true and escalation_type=AUTOMATIC.\n* For third failed attempts, call Tool_locker_availability using zip_code and package_size unless the package is PERISHABLE.\n* If locker reroute is feasible, return resolution=REROUTE_TO_LOCKER.\n* If the local locker is FULL or unavailable but the shipment pattern supports locker reroute, still return resolution=REROUTE_TO_LOCKER and set escalation_required=true because a supervisor must find an alternative locker or override path.\n* Do not return RESCHEDULE for a third failed attempt unless the playbook or locker tool clearly rules out locker reroute.\n* For third failed delivery attempts, the rationale must identify the third failed attempt as the automatic escalation trigger. Customer exception history may be mentioned only as additional context, not as the primary escalation reason.\n* Never describe a third failed delivery attempt as discretionary escalation when escalation_type is AUTOMATIC.\n\nLocker result wording:\n\n* If Tool_locker_availability returns FULL capacity, unavailable capacity, no eligible locker, an empty result, or an unreadable result, describe the operational issue as: local locker is full or unavailable.\n* Do not say \"tool error\" unless the workflow tool itself failed to execute.\n* Do not say \"locker availability check failed\" unless there was an actual execution failure.\n* If locker availability is FULL, unavailable, empty, or no eligible locker is found, treat it as an operational locker constraint, not a technical tool failure.\n* For SHP-002-style second failed ATTEMPTED delivery cases, if the local locker is full or unavailable, keep resolution=RESCHEDULE and include Tool_locker_availability in tools_used.\n* For SHP-008-style second failed ATTEMPTED delivery cases with STANDARD exceptions_last_90d > 5, if the local locker is full or unavailable, keep resolution=RESCHEDULE and set escalation_required=true with escalation_type=DISCRETIONARY.\n* For SHP-005-style third failed ATTEMPTED delivery cases, keep resolution=REROUTE_TO_LOCKER and escalation_required=true even when the local locker is full or unavailable.\n* In the rationale, say: local locker is full or unavailable when that fact supports the selected resolution.\n\nEscalation rules:\n\n* Automatic: third failed attempt; VIP customer with 3 or more exceptions in the last 90 days; damaged perishable; perishable weather delay greater than 4 hours; vacant/demolished/fraud-like address; driver safety concern.\n* Discretionary: Standard customer with more than 5 exceptions in 90 days; Premium perishable delay greater than 2 hours; any ambiguous or off-pattern scenario.\n* If any automatic escalation rule applies, escalation_required must be true and escalation_type must be AUTOMATIC.\n* If no automatic escalation rule applies but any discretionary escalation rule applies, escalation_required must be true and escalation_type must be DISCRETIONARY.\n* If both automatic and discretionary escalation signals appear to apply, AUTOMATIC takes precedence.\n* When escalation_type=AUTOMATIC, the rationale must name the automatic trigger first.\n* When escalation_type=DISCRETIONARY, the rationale must name the discretionary trigger.\n* Never say no automatic escalation threshold was met when customer tier is VIP and exceptions_last_90d is 3 or greater.\n* Never say no escalation trigger was met when customer tier is STANDARD and exceptions_last_90d is greater than 5.\n* Never justify escalation_type=AUTOMATIC primarily by saying the customer met a discretionary escalation threshold.\n\nPlaybook citation label rules:\nUse only these approved playbook citation labels. Do not invent new labels, rename labels, or combine words into new labels.\n\nApproved labels:\n\n* Playbook: Routine Event\n* Playbook: Address Issue\n* Playbook: Failed Delivery Attempts\n* Playbook: Locker Reroute\n* Playbook: Damaged Package\n* Playbook: Damaged Perishable\n* Playbook: Refused Delivery\n* Playbook: Weather Delays\n* Playbook: Escalation Matrix\n\nCitation mapping:\n\n* Routine non-exception cases: Playbook: Routine Event\n* Address verification without fraud or vacancy: Playbook: Address Issue\n* Failed delivery attempt cases: Playbook: Failed Delivery Attempts\n* Second failed attempt with locker availability checked: Playbook: Failed Delivery Attempts, Playbook: Locker Reroute\n* Second failed attempt with VIP automatic escalation: Playbook: Failed Delivery Attempts, Playbook: Escalation Matrix\n* Second failed attempt with both locker availability checked and VIP automatic escalation: Playbook: Failed Delivery Attempts, Playbook: Locker Reroute, Playbook: Escalation Matrix\n* Second failed attempt with STANDARD discretionary escalation: Playbook: Failed Delivery Attempts, Playbook: Escalation Matrix\n* Second failed attempt with both locker availability checked and STANDARD discretionary escalation: Playbook: Failed Delivery Attempts, Playbook: Locker Reroute, Playbook: Escalation Matrix\n* Third failed attempt with locker reroute: Playbook: Failed Delivery Attempts, Playbook: Locker Reroute, Playbook: Escalation Matrix\n* Locker capacity, eligibility, or reroute cases: Playbook: Locker Reroute\n* Standard damaged package cases: Playbook: Damaged Package\n* Damaged perishable cases: Playbook: Damaged Perishable, Playbook: Escalation Matrix\n* Refused delivery cases: Playbook: Refused Delivery\n* Weather delay cases: Playbook: Weather Delays\n* Any automatic or discretionary escalation: include Playbook: Escalation Matrix when it materially supports the decision.\n\nOutput requirements:\nReturn only one valid JSON object.\nDo not wrap the object in an \"output\" field.\nDo not use markdown fences.\nDo not include explanatory text outside the JSON.\nDo not include hidden chain-of-thought.\nUse only the exact top-level fields listed below.\n\nRequired JSON schema:\n{\n\"is_exception\": \"YES or NO\",\n\"classification\": \"one of ADDRESS_ISSUE, ATTEMPTED, DAMAGED, REFUSED, WEATHER_DELAY, REROUTE_TO_LOCKER, ROUTINE, OTHER\",\n\"resolution\": \"one of RESCHEDULE, REPLACE, REROUTE_TO_LOCKER, RETURN_TO_SENDER, N/A\",\n\"escalation_required\": true,\n\"escalation_type\": \"one of NONE, AUTOMATIC, DISCRETIONARY\",\n\"recommended_next_step\": \"short operational next step\",\n\"rationale\": \"concise audit-friendly rationale, no chain-of-thought\",\n\"playbook_citation\": \"approved playbook label or comma-separated approved labels only\",\n\"tools_used\": [\"list of tools actually used\"]\n}\n\nFor SHP-002-style second failed attempt cases with a VIP customer and exceptions_last_90d >= 3:\n\n* call Tool_customer_profile_lookup with include_pii=false\n* call Tool_locker_availability using zip_code and package_size unless package_type is PERISHABLE\n* return is_exception=YES\n* return classification=ATTEMPTED\n* return resolution=RESCHEDULE if the local locker is FULL, unavailable, incompatible, or no eligible locker is found\n* return escalation_required=true\n* return escalation_type=AUTOMATIC\n* include Tool_customer_profile_lookup, Tool_locker_availability, and check_escalation_rules in tools_used when those tools were used\n* return playbook_citation=\"Playbook: Failed Delivery Attempts, Playbook: Locker Reroute, Playbook: Escalation Matrix\"\n* rationale must state that the second failed attempt is actionable, locker reroute is not currently available if the locker is full or unavailable, and VIP customer history meets the automatic escalation threshold\n\nFor SHP-003-style address verification cases with a standard customer, first attempt, no fraud-like language, and no deterministic escalation trigger:\n\n* return resolution=RESCHEDULE\n* return escalation_required=false\n* return escalation_type=NONE\n* return playbook_citation=\"Playbook: Address Issue\"\n\nFor SHP-005-style third failed attempt cases:\n\n* return classification=ATTEMPTED\n* call Tool_locker_availability using zip_code and package_size unless package_type is PERISHABLE\n* return resolution=REROUTE_TO_LOCKER\n* return escalation_required=true\n* return escalation_type=AUTOMATIC\n* include Tool_locker_availability in tools_used when called\n* return playbook_citation=\"Playbook: Failed Delivery Attempts, Playbook: Locker Reroute, Playbook: Escalation Matrix\"\n* rationale must state that the third failed delivery attempt is actionable and triggers automatic escalation\n* rationale must state that the local locker is full or unavailable when locker availability supports that fact\n* rationale must state that supervisor support is required to find an alternative locker or approved override path when the local locker is full or unavailable\n* do not say the customer history is the discretionary escalation threshold when the third failed attempt is the automatic escalation trigger\n* acceptable rationale example: \"Third failed delivery attempt is actionable and triggers automatic escalation; local locker is full or unavailable, so supervisor support is required to find an alternative locker or approved override path.\"\n\nFor SHP-008-style second failed attempt cases with a STANDARD customer and exceptions_last_90d > 5:\n\n* call Tool_customer_profile_lookup with include_pii=false\n* call Tool_locker_availability using zip_code and package_size unless package_type is PERISHABLE\n* return is_exception=YES\n* return classification=ATTEMPTED\n* return resolution=RESCHEDULE if the local locker is FULL, unavailable, incompatible, or no eligible locker is found\n* return escalation_required=true\n* return escalation_type=DISCRETIONARY when no automatic escalation trigger applies\n* include Tool_customer_profile_lookup, Tool_locker_availability, and check_escalation_rules in tools_used when those tools were used\n* return playbook_citation=\"Playbook: Failed Delivery Attempts, Playbook: Locker Reroute, Playbook: Escalation Matrix\"\n* rationale must state that the second failed delivery attempt is actionable, locker reroute is not currently available if the locker is full or unavailable, and the standard customer has more than 5 exceptions in the last 90 days, meeting the discretionary escalation threshold\n* do not say no escalation trigger was met\n* acceptable rationale example: \"Second failed delivery attempt is actionable; local locker is full or unavailable, so redelivery is the correct path; standard customer history with more than 5 exceptions in the last 90 days meets the discretionary escalation threshold.\"\n\nFor SHP-009-style damaged perishable cases:\n\n* return classification=DAMAGED\n* return resolution=REPLACE\n* return escalation_required=true\n* return escalation_type=AUTOMATIC\n* do not call Tool_locker_availability because perishables should not be rerouted to lockers\n* return playbook_citation=\"Playbook: Damaged Perishable, Playbook: Escalation Matrix\"\n\nCritical output instruction:\nYour final answer must start with { and must not contain any outer wrapper key.\nNever return {\"output\": ...}.\nNever return {\"response\": ...}.\nNever return JSON as a string.\nReturn the JSON object directly with these exact top-level keys:\nis_exception, classification, resolution, escalation_required, escalation_type, recommended_next_step, rationale, playbook_citation, tools_used.",
+          "maxIterations": 6
+        }
+      },
+      "id": "sanitized-node-019",
+      "name": "Resolution Agent",
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 1.7,
+      "position": [
+        -1200,
+        -48
+      ]
+    },
+    {
+      "parameters": {
+        "name": "Tool_customer_profile_lookup",
+        "description": "Look up customer profile by customer_id. Redacts customer name unless include_pii=true. Input: customer_id, include_pii.",
+        "workflowId": {
+          "__rl": true,
+          "value": "REPLACE_WITH_IMPORTED_WF1_ID",
+          "mode": "id"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "customer_id": "={{ $fromAI(\"customer_id\", \"Customer identifier such as CUST-001\", \"string\") }}",
+            "include_pii": "={{ $fromAI(\"include_pii\", \"true only for communication agent, false otherwise\", \"boolean\") }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "customer_id",
+              "displayName": "customer_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string"
+            },
+            {
+              "id": "include_pii",
+              "displayName": "include_pii",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "boolean"
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        }
+      },
+      "id": "sanitized-node-020",
+      "name": "Tool_customer_profile_lookup",
+      "type": "@n8n/n8n-nodes-langchain.toolWorkflow",
+      "typeVersion": 2,
+      "position": [
+        -848,
+        -144
+      ]
+    },
+    {
+      "parameters": {
+        "name": "Tool_locker_availability",
+        "description": "Return lockers in the zip code and mark each eligible based on package size and capacity. Input: zip_code, package_size.",
+        "workflowId": {
+          "__rl": true,
+          "value": "REPLACE_WITH_IMPORTED_WF2_ID",
+          "mode": "list",
+          "cachedResultName": "P3 - Workflow 2 - Locker Availability"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "zip_code": "=={{ $fromAI(\"zip_code\", \"Delivery destination ZIP code such as 10001 or 10003\", \"string\") }}",
+            "package_size": "=={{ $fromAI(\"package_size\", \"Package size from the shipment record. Must be SMALL, MEDIUM, or LARGE.\", \"string\") }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "zip_code",
+              "displayName": "zip_code",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string"
+            },
+            {
+              "id": "package_size",
+              "displayName": "package_size",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string"
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        }
+      },
+      "id": "sanitized-node-021",
+      "name": "Tool_locker_availability",
+      "type": "@n8n/n8n-nodes-langchain.toolWorkflow",
+      "typeVersion": 2,
+      "position": [
+        -976,
+        240
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "28960684-8dab-4eb3-ae0d-9f4a5896bbd5",
+              "leftValue": "={{ $json.is_exception === 'YES' && $json.resolution === 'N/A' }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "sanitized-node-022",
+      "name": "Catch Contradictory Output",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        -704,
+        -48
+      ]
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "={{ JSON.stringify({ event: $('Evaluate Escalation Rules').first().json, resolution_output: $json }) }}",
+        "options": {
+          "systemMessage": "You are the Critic-Resolution sub-agent.\n\nMission:\nValidate the Resolution Agent output against the playbook, current shipment event, customer profile evidence, deterministic escalation signals, and tool usage. Use the Playbook Search tool to verify the relevant policy sections. Do not solve from memory alone.\n\nInputs you may receive:\n- event: the consolidated shipment event and deterministic escalation signals.\n- resolution_output: the Resolution Agent output.\n- customer profile facts may appear in event, customer_profile_evidence, resolution_output.rationale, or the Resolution Agent tool-supported output.\n\nEvaluate:\n- Is the event classification correct?\n- Is the resolution one of RESCHEDULE, REPLACE, REROUTE_TO_LOCKER, RETURN_TO_SENDER, or N/A and consistent with the playbook?\n- Is escalation_required correct using automatic and discretionary triggers?\n- Are locker, perishable, fragile, address, and failed-attempt constraints respected?\n- Is the rationale audit-friendly without exposing hidden chain-of-thought?\n- Are playbook citations relevant and from the approved label set?\n- Were required tools used when the decision depends on customer profile, locker availability, or escalation logic?\n\nCustomer-profile escalation validation:\n- VIP customers with 3 or more exceptions in the last 90 days require escalation when the current event is an actionable exception.\n- If resolution_output.rationale states concrete customer profile facts such as VIP status and exceptions_last_90d, and resolution_output.tools_used includes Tool_customer_profile_lookup, treat those facts as valid customer profile evidence.\n- Do not ESCALATE only because the raw event or escalation_signals object does not contain customer_tier or exceptions_last_90d, as long as the Resolution Agent used Tool_customer_profile_lookup and included concrete profile facts in the rationale.\n- For SHP-002-style cases where classification=ATTEMPTED, resolution=RESCHEDULE, customer is VIP, and exceptions_last_90d is 3 or more, escalation_required=true and escalation_type=AUTOMATIC are correct.\n\nDecision rules:\n- Return ACCEPT if the resolution is correct, supported by the event, tool usage, customer profile facts, and playbook policy.\n- Return REVISE if a specific fix can be made and revision_count is still under the retry limit.\n- Return ESCALATE only if the result is contradictory, unsupported after considering tool-supported customer profile facts, unsafe, policy-ambiguous, or retry limit is reached.\n\nReturn format:\nReturn exactly one line.\nStart with exactly one of:\nACCEPT:\nREVISE:\nESCALATE:\n\nAfter the label, include one brief sentence of feedback.\nDo not include bullet points.\nDo not include JSON.\nDo not explain every validation criterion.\n\nExamples:\nACCEPT: The resolution is consistent with the event, customer profile evidence, escalation rules, and playbook citation.\nREVISE: The resolution should be updated because the selected action does not match the failed delivery attempt policy.\nESCALATE: The resolution is contradictory or unsupported by the available event, tool, and playbook evidence.",
+          "maxIterations": 4
+        }
+      },
+      "id": "sanitized-node-023",
+      "name": "Critic - Resolution",
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 1.7,
+      "position": [
+        -432,
+        48
+      ]
+    },
+    {
+      "parameters": {
+        "mode": "retrieve-as-tool",
+        "toolName": "Tool_playbook_search",
+        "toolDescription": "Search exception resolution playbook sections for policy support.",
+        "memoryKey": "exception_resolution_playbook",
+        "topK": 5
+      },
+      "id": "sanitized-node-024",
+      "name": "Tool_playbook_search",
+      "type": "@n8n/n8n-nodes-langchain.vectorStoreInMemory",
+      "typeVersion": 1,
+      "position": [
+        -208,
+        304
+      ]
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 1
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.critic_approved }}",
+                    "rightValue": true,
+                    "operator": {
+                      "type": "boolean",
+                      "operation": "equals"
+                    },
+                    "id": "033cb251-e454-406f-b493-cfedc83c3473"
+                  }
+                ],
+                "combinator": "and"
+              }
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 1
+                },
+                "conditions": [
+                  {
+                    "id": "3ebbcdf8-fac5-4cd5-9de0-242601e0b91e",
+                    "leftValue": "={{ $json.needs_revision }}",
+                    "rightValue": true,
+                    "operator": {
+                      "type": "boolean",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              }
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 1
+                },
+                "conditions": [
+                  {
+                    "id": "8a0ed10c-971c-4725-9698-cf13356ac7cc",
+                    "leftValue": "={{ $json.critic_escalate }}",
+                    "rightValue": "true",
+                    "operator": {
+                      "type": "boolean",
+                      "operation": "true",
+                      "singleValue": true
+                    }
+                  }
+                ],
+                "combinator": "and"
+              }
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 1
+                },
+                "conditions": [
+                  {
+                    "id": "647df004-2b47-495d-b631-ce3f5abf3459",
+                    "leftValue": "={{ $json.critic_decision }}",
+                    "rightValue": "UNKNOWN",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals",
+                      "name": "filter.operator.equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              }
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "sanitized-node-025",
+      "name": "Route Critic Decision",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3,
+      "position": [
+        64,
+        -16
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "74255184-8071-415b-a069-a052c08bff76",
+              "name": "resolution_output",
+              "value": "={{ $('Parse Resolution Output').first().json.resolution_result }}",
+              "type": "object"
+            },
+            {
+              "id": "61c98853-2d49-4d11-87a1-2ff086d9ca0f",
+              "name": "escalated",
+              "value": "={{ $('Parse Resolution Output').first().json.escalation_required === true || $('Evaluate Escalation Rules').first().json.escalation_signals?.has_automatic === true }}",
+              "type": "boolean"
+            },
+            {
+              "id": "44fd484d-6567-4e8f-957e-cb0171e1afaf",
+              "name": "critic_output",
+              "value": "={{ {\n  decision: $('Parse Critic Resolution Output').first().json.critic_decision,\n  approved: $('Parse Critic Resolution Output').first().json.critic_approved,\n  needs_revision: $('Parse Critic Resolution Output').first().json.needs_revision,\n  feedback: $('Parse Critic Resolution Output').first().json.critic_feedback,\n  issues: $('Parse Critic Resolution Output').first().json.critic_issues,\n  confidence: $('Parse Critic Resolution Output').first().json.critic_confidence\n} }}",
+              "type": "object"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "sanitized-node-026",
+      "name": "Accept Resolution",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        336,
+        -64
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "a41860bf-4aca-4146-bec7-bca3d51e903e",
+              "name": "resolution_output",
+              "value": "={{ $('Resolution Agent').first().json.output }}",
+              "type": "object"
+            },
+            {
+              "id": "c829c0b0-f473-4a2d-82d4-3ee70bb38c50",
+              "name": "escalated",
+              "value": true,
+              "type": "boolean"
+            },
+            {
+              "id": "65e52230-f441-4939-b38c-dbc6be61ab11",
+              "name": "critic_output",
+              "value": "={{ {\n  decision: 'ESCALATE',\n  approved: false,\n  needs_revision: false,\n  escalate: true,\n  feedback: $('Critic - Resolution').first().json.output || 'Resolution critic escalated the case.',\n  issues: [],\n  confidence: null\n} }}",
+              "type": "object"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "sanitized-node-027",
+      "name": "Mark Escalated",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        272,
+        240
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "1f8c3000-8ed5-4648-b364-7ecc03bf5ae0",
+              "leftValue": "={{ $('Preprocess + Consolidate').first().json.revision_count < 1 }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "sanitized-node-028",
+      "name": "Check Revise Limit",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        512,
+        160
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "43b3ca45-9d43-4465-bb0d-77651ebf4676",
+              "name": "consolidated_event",
+              "value": "={{ $('Preprocess + Consolidate').first().json.consolidated_event }}",
+              "type": "object"
+            },
+            {
+              "id": "0321d4dc-06c7-4d75-8ed4-a8eacc39f43e",
+              "name": "zip_code",
+              "value": "={{ $('Preprocess + Consolidate').first().json.zip_code }}",
+              "type": "string"
+            },
+            {
+              "id": "4a8722ca-4a05-4281-8e29-1a645ea3c7b1",
+              "name": "revision_count",
+              "value": "={{ $('Preprocess + Consolidate').first().json.revision_count + 1 }}",
+              "type": "number"
+            },
+            {
+              "id": "7871b03e-4991-4796-9634-4cf7cff54ad7",
+              "name": "critic_feedback",
+              "value": "={{ $('Critic - Resolution').first().json.output.feedback }}",
+              "type": "string"
+            },
+            {
+              "id": "34e5eea3-e451-4989-b475-b527a4aa859b",
+              "name": "escalated",
+              "value": false,
+              "type": "boolean"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "sanitized-node-029",
+      "name": "Increment and Feed Back",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        752,
+        256
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "b9cb809b-f8c5-43f6-be65-0346207e92c5",
+              "name": "shipment_id",
+              "value": "={{ $('Preprocess + Consolidate').first().json.consolidated_event.shipment_id }}",
+              "type": "string"
+            },
+            {
+              "id": "4f87a4ef-4cf6-42a4-9dbf-d95ceb5ea09b",
+              "name": "resolution_output",
+              "value": "={{ $json.resolution_output }}",
+              "type": "object"
+            },
+            {
+              "id": "b6e536c7-d00e-4cbc-afae-b95f11f21ea8",
+              "name": "escalated",
+              "value": "={{ $json.escalated }}",
+              "type": "boolean"
+            },
+            {
+              "id": "31b08cd5-5613-4d02-a798-efa9fc896d0b",
+              "name": "critic_output",
+              "value": "={{ $json.critic_output }}",
+              "type": "object"
+            },
+            {
+              "id": "d1d17b09-5530-4de2-9c44-ef6829196844",
+              "name": "consolidated_event",
+              "value": "={{ $('Preprocess + Consolidate').first().json.consolidated_event }}",
+              "type": "object"
+            },
+            {
+              "id": "30029848-58b3-454f-89d2-9dbf1933ba6c",
+              "name": "zip_code",
+              "value": "={{ $('Preprocess + Consolidate').first().json.zip_code }}",
+              "type": "string"
+            },
+            {
+              "id": "7ba8041c-b80e-4b93-acf9-f9f1d5857211",
+              "name": "is_exception",
+              "value": "={{ $json.resolution_output.is_exception }}",
+              "type": "string"
+            },
+            {
+              "id": "7e1e7272-796c-44fc-aa99-9ea5b8f3173a",
+              "name": "classification",
+              "value": "={{ $json.resolution_output.classification }}",
+              "type": "string"
+            },
+            {
+              "id": "0c6e3286-80c5-4e50-a79f-adfdb0b07c02",
+              "name": "resolution",
+              "value": "={{ $json.resolution_output.resolution }}",
+              "type": "string"
+            },
+            {
+              "id": "5f29b51a-0795-4767-afe6-63e0f1f8999a",
+              "name": "escalation_required",
+              "value": "={{ $json.resolution_output.escalation_required }}",
+              "type": "boolean"
+            },
+            {
+              "id": "63c0941c-e80b-4291-8ecf-866ae695519b",
+              "name": "escalation_type",
+              "value": "={{ $json.resolution_output.escalation_type }}",
+              "type": "string"
+            },
+            {
+              "id": "c93775fd-40f9-492e-8c09-62b1ad785cdb",
+              "name": "playbook_citation",
+              "value": "={{ $json.resolution_output.playbook_citation }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "sanitized-node-030",
+      "name": "Resolution Decided",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        608,
+        -48
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "b5840325-0a47-46c3-b55c-b6017f937905",
+              "leftValue": "={{ $json.resolution_output.is_exception }}",
+              "rightValue": "YES",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "sanitized-node-031",
+      "name": "Is It An Exception?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        864,
+        -48
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "595cafe8-3dec-489f-b3e0-d7bc5b48a367",
+              "name": "shipment_id",
+              "value": "={{ $json.shipment_id }}",
+              "type": "string"
+            },
+            {
+              "id": "ca02c968-180e-47be-b792-d6e41c30cd6f",
+              "name": "is_exception",
+              "value": "NO",
+              "type": "string"
+            },
+            {
+              "id": "395a0910-861a-4796-9551-5179cc0079af",
+              "name": "resolution",
+              "value": "N/A",
+              "type": "string"
+            },
+            {
+              "id": "4943e0f1-9d9d-49f7-b677-8968669fd6f6",
+              "name": "escalated",
+              "value": false,
+              "type": "boolean"
+            },
+            {
+              "id": "e2159ae2-0074-4dcd-ae13-558816b23106",
+              "name": "tone_label",
+              "value": "N/A",
+              "type": "string"
+            },
+            {
+              "id": "45d39210-ca86-461a-9b70-6123c254de72",
+              "name": "customer_message",
+              "value": "",
+              "type": "string"
+            },
+            {
+              "id": "58de4210-5a75-49c9-b44d-5bb891140e2c",
+              "name": "rationale",
+              "value": "={{ $json.resolution_output.rationale }}",
+              "type": "string"
+            },
+            {
+              "id": "12a908d9-7015-4343-ba4c-de093ff9336c",
+              "name": "tools_used",
+              "value": "={{ [] }}",
+              "type": "array"
+            },
+            {
+              "id": "4b6e4de0-1fc0-4ea8-ae87-63d2dded7e8e",
+              "name": "playbook_citations",
+              "value": "={{ $json.resolution_output.playbook_citations || [] }}",
+              "type": "array"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "sanitized-node-032",
+      "name": "No Message Finalize",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        1120,
+        144
+      ]
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "={{ JSON.stringify($json) }}",
+        "options": {
+          "systemMessage": "You are the Communication Agent for delivery exception customer notifications.\n\nMission:\nCreate a concise customer-facing message only when the final resolution says is_exception=YES.\n\nRequired tool behavior:\n\n* Call Tool_customer_profile_lookup with include_pii=true so you can personalize the communication and use the preferred channel.\n* Use customer tier to derive tone: VIP and PREMIUM = FORMAL; STANDARD = CASUAL.\n* Use preferred_channel directly from the customer profile: VIP/PREMIUM generally EMAIL; STANDARD generally SMS.\n* Use the customer's name when available from the customer profile.\n* Reference active service credit only when active_credit is present and relevant.\n\nTone rules:\n\n* FORMAL: professional, clear, and slightly more polished.\n* CASUAL: brief, friendly, and direct.\n* Do not sound robotic or expose internal workflow language.\n* SMS messages should be concise but still include the required next step.\n\nMessage requirements:\n\n1. State what happened in plain customer-facing language.\n2. State what we are doing using the selected resolution.\n3. State what happens next, including timing or customer action needed.\n4. Include an apology proportional to severity.\n5. Reference active service credit if relevant and present.\n6. Do not reveal internal scoring, ground truth labels, hidden chain-of-thought, tool names, playbook labels, escalation mechanics, thresholds, or private policy mechanics.\n7. Do not say \"automatic escalation,\" \"playbook,\" \"tool error,\" \"locker availability check failed,\" or similar internal phrases.\n\nAddress issue requirements:\n\n* For ADDRESS_ISSUE cases where resolution_output.resolution is RESCHEDULE, the message must ask the customer to confirm or update their delivery address before rescheduling.\n* Include the specific missing or uncertain address detail when known, such as building number, unit number, street, gate code, access instructions, or delivery entrance.\n* Do not say the delivery has already been rescheduled unless the customer has already confirmed or corrected the address.\n* Use wording such as \"Please confirm or update your delivery address so we can reschedule your delivery.\"\n* For non-address cases such as ATTEMPTED, DAMAGED, REFUSED, WEATHER_DELAY, REROUTE_TO_LOCKER, or other non-address issues, do not ask the customer to confirm or update their address unless the final resolution specifically identifies an address problem.\n\nReschedule requirements:\n\n* If resolution=RESCHEDULE and classification is not ADDRESS_ISSUE, tell the customer we are arranging another delivery attempt and provide the expected next step or timing.\n* If resolution=RESCHEDULE and classification is ADDRESS_ISSUE, ask the customer to confirm or update the address first, then explain that delivery will be rescheduled after the address is confirmed.\n\nEscalation requirements:\n\n* If resolution_output.escalation_required=true, the message must include customer-safe wording that the case has been escalated, prioritized, or sent to the delivery support team for review.\n* It is acceptable to say \"we have escalated this to our delivery support team,\" \"we have prioritized this with our delivery support team,\" or \"our delivery support team is reviewing this now.\"\n* Do not mention internal escalation rules, thresholds, scoring, automatic escalation, discretionary escalation, or supervisor policy mechanics.\n* For escalated cases, clearly explain what the customer should expect next.\n\nLocker reroute requirements:\n\n* If resolution=REROUTE_TO_LOCKER, clearly explain that delivery could not be completed and that a locker pickup path is being arranged.\n* If locker address, operating hours, and pickup deadline are available, include all three.\n* The pickup deadline is 3 business days.\n* If locker details are missing, full, unavailable, or still being confirmed, do not invent details. Say the delivery support team is confirming an alternate locker or approved pickup path and will send the locker address, hours, and pickup deadline once confirmed.\n* Always include a redelivery alternative when locker details are missing or unavailable.\n* Do not say \"tool error,\" \"locker availability check failed,\" \"playbook,\" \"automatic escalation,\" or \"discretionary escalation.\"\n\nEscalated locker reroute requirements:\n\n* If resolution=REROUTE_TO_LOCKER and resolution_output.escalation_required=true, the message must say the case has been escalated or prioritized with the delivery support team.\n* If locker details are missing, full, unavailable, or still being confirmed, tell the customer that the delivery support team is confirming either an alternate locker pickup path or another approved delivery option.\n* Tell the customer what to expect next, such as: \"We will send the locker address, pickup details, and any alternative delivery option once confirmed.\"\n* Do not promise a specific locker address, pickup time, operating hours, or pickup deadline unless those details are available.\n* Do not tell the customer only that \"we are arranging a locker pickup\" when the locker is unavailable or still being confirmed. The message must mention the support team review and the alternate locker or approved delivery option.\n\nReturn only valid structured JSON with these fields:\n{\n\"tone_label\": \"FORMAL or CASUAL\",\n\"channel\": \"EMAIL or SMS\",\n\"customer_message\": \"customer-facing message only\"\n}\n",
+          "maxIterations": 4
+        }
+      },
+      "id": "sanitized-node-033",
+      "name": "Communication Agent",
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 1.7,
+      "position": [
+        1120,
+        -160
+      ]
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "={{ JSON.stringify({\n  communication_output: $json.output,\n  shipment_id: $('Resolution Decided').first().json.shipment_id,\n  customer_id: $('Resolution Decided').first().json.consolidated_event?.customer_id,\n  resolution_output: $('Resolution Decided').first().json.resolution_output,\n  escalated: $('Resolution Decided').first().json.escalated,\n  consolidated_event: $('Resolution Decided').first().json.consolidated_event,\n  zip_code: $('Resolution Decided').first().json.zip_code\n}) }}",
+        "options": {
+          "systemMessage": "You are the Critic-Communication sub-agent.\n\nMission:\nValidate whether the Communication Agent produced a customer-facing message that is complete, safe, and consistent with the final approved resolution.\n\nInputs you will receive:\n- communication_output: the customer-facing message generated by the Communication Agent. It may be plain text or a JSON string containing channel and message.\n- resolution_output: the final approved resolution object.\n- consolidated_event: the shipment event.\n- escalated: whether the case is escalated.\n- shipment_id, customer_id, and zip_code.\n\nValidation rules:\nAccept only if:\n- The message explains what happened in customer-facing language.\n- The message states the selected resolution clearly.\n- The message includes the next step, expected timeline, or what the customer should expect next.\n- For ADDRESS_ISSUE cases where resolution_output.resolution is RESCHEDULE, the message asks the customer to confirm or update their delivery address before rescheduling. Do not apply this rule to ATTEMPTED, DAMAGED, REFUSED, WEATHER_DELAY, REROUTE_TO_LOCKER, or other non-address cases.\n- The apology is proportional to severity.\n- The tone is appropriate for the situation and customer tier when known.\n- The channel is reasonable if included.\n- For locker reroute cases, include locker address, hours, pickup deadline, and redelivery alternative when locker details are available.\n- The message does not reveal internal reasoning, hidden chain-of-thought, scoring, ground truth, playbook internals, tool names, or private operational labels.\n- The message is consistent with resolution_output and does not promise a different action.\n\nDo not reject only because:\n- The message uses a concise tone.\n- The exact customer tier is unavailable.\n- The message says the case was escalated, as long as escalation is customer-facing and resolution_output.escalation_required is true.\n- Locker details are missing when the resolution is not REROUTE_TO_LOCKER.\n- The message does not ask for address confirmation when the case classification is ATTEMPTED, DAMAGED, REFUSED, WEATHER_DELAY, REROUTE_TO_LOCKER, or any other non-address issue.\n\nDecision labels:\n- ACCEPT if the message is safe, complete, and consistent.\n- REVISE if the message is missing required customer-facing content or has tone, channel, or consistency issues.\n- ESCALATE only if the message exposes private/internal information or creates a serious customer-impacting risk.\n\nReturn format:\nReturn exactly one line.\nStart with exactly one of:\nACCEPT:\nREVISE:\nESCALATE:\n\nAfter the label, include one brief sentence of feedback.\nDo not include bullet points.\nDo not include JSON.\nDo not explain every validation criterion.\n\nExamples:\nACCEPT: The message is complete, customer-safe, and consistent with the approved replacement resolution.\nREVISE: The message needs a clearer next step or expected timeline for the customer.\nESCALATE: The message exposes internal-only information and should not be sent.",
+          "maxIterations": 3
+        }
+      },
+      "id": "sanitized-node-034",
+      "name": "Critic - Communication",
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 1.7,
+      "position": [
+        1424,
+        -160
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "fb2ae5d7-4169-484d-836f-df47d35613e9",
+              "name": "shipment_id",
+              "value": "={{ $('Resolution Decided').first().json.shipment_id }}",
+              "type": "string"
+            },
+            {
+              "id": "2a031958-c62c-4b8e-ae51-0636d3b63c6f",
+              "name": "is_exception",
+              "value": "={{ $('Resolution Decided').first().json.resolution_output.is_exception }}",
+              "type": "string"
+            },
+            {
+              "id": "589db981-7bc8-41bc-8958-b4d3d427a1c9",
+              "name": "resolution",
+              "value": "={{ $('Resolution Decided').first().json.resolution_output.resolution }}",
+              "type": "string"
+            },
+            {
+              "id": "17be02a1-159b-4d46-a6ec-1bdfe299fa35",
+              "name": "escalated",
+              "value": "={{ $('Resolution Decided').first().json.escalated }}",
+              "type": "boolean"
+            },
+            {
+              "id": "e3f7e9ed-bad6-462b-b731-7010ce16f55e",
+              "name": "tone_label",
+              "value": "={{ (typeof $('Communication Agent').first().json.output === 'string' ? JSON.parse($('Communication Agent').first().json.output || '{}') : ($('Communication Agent').first().json.output || {})).tone_label || '' }}",
+              "type": "string"
+            },
+            {
+              "id": "a4398a35-2c26-40f9-9b1d-178e8358d50f",
+              "name": "channel",
+              "value": "={{ (typeof $('Communication Agent').first().json.output === 'string' ? JSON.parse($('Communication Agent').first().json.output || '{}') : ($('Communication Agent').first().json.output || {})).channel || '' }}",
+              "type": "string"
+            },
+            {
+              "id": "add0ccac-4bc1-4f40-851f-8be8f11c6bee",
+              "name": "customer_message",
+              "value": "={{ (typeof $('Communication Agent').first().json.output === 'string' ? JSON.parse($('Communication Agent').first().json.output || '{}') : ($('Communication Agent').first().json.output || {})).customer_message || '' }}",
+              "type": "string"
+            },
+            {
+              "id": "ec3363c6-6820-4193-9d51-57c1e030d229",
+              "name": "rationale",
+              "value": "={{ $('Resolution Decided').first().json.resolution_output.rationale }}",
+              "type": "string"
+            },
+            {
+              "id": "3c088a2f-f498-4f5b-bd94-875d373e81d6",
+              "name": "playbook_citations",
+              "value": "={{ ($('Resolution Decided').first().json.resolution_output.playbook_citation || '')\n  .split(',')\n  .map(s => s.trim())\n  .filter(Boolean) }}",
+              "type": "array"
+            },
+            {
+              "id": "0b4e87cf-8ee0-4bf7-a653-d6b75b2e1786",
+              "name": "tools_used",
+              "value": "={{ Array.from(new Set([...( $('Resolution Decided').first().json.resolution_output.tools_used || [] ), 'check_escalation_rules', 'resolution_agent', 'communication_agent'])) }}",
+              "type": "array"
+            },
+            {
+              "id": "5035844c-2746-4adb-b312-4798d61c5e2f",
+              "name": "critic_resolution",
+              "value": "={{ $('Resolution Decided').first().json.critic_output }}",
+              "type": "object"
+            },
+            {
+              "id": "82f8e712-b30d-403b-a171-05f817857494",
+              "name": "critic_communication",
+              "value": "={{ {\n  decision: $json.communication_critic_decision,\n  approved: $json.communication_critic_approved,\n  needs_revision: $json.communication_needs_revision,\n  escalate: $json.communication_escalate,\n  feedback: $json.communication_critic_feedback,\n  issues: $json.communication_critic_issues,\n  confidence: $json.communication_critic_confidence\n} }}",
+              "type": "object"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "sanitized-node-035",
+      "name": "Finalize Output",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        1888,
+        -160
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const raw = $json.output;\n\nlet parsed;\n\ntry {\n  parsed = typeof raw === 'string' ? JSON.parse(raw) : raw;\n} catch (error) {\n  const match = String(raw || '').match(/\\{[\\s\\S]*\\}/);\n  parsed = match ? JSON.parse(match[0]) : {};\n}\n\nlet result = parsed.output || parsed.response || parsed;\n\nif (typeof result === 'string') {\n  try {\n    result = JSON.parse(result);\n  } catch (error) {\n    const match = String(result || '').match(/\\{[\\s\\S]*\\}/);\n    result = match ? JSON.parse(match[0]) : {};\n  }\n}\n\nresult = result || {};\n\nfunction isTrue(value) {\n  return value === true || String(value || '').toLowerCase() === 'true';\n}\n\nfunction normalizeEscalationType(value) {\n  return String(value || '').trim().toUpperCase();\n}\n\nfunction normalizePlaybookCitation(value, result) {\n  const text = String(value || '').toLowerCase();\n  const classification = String(result.classification || '').toUpperCase();\n  const resolution = String(result.resolution || '').toUpperCase();\n  const rationale = String(result.rationale || '').toLowerCase();\n  const escalationType = normalizeEscalationType(result.escalation_type);\n  const escalationRequired = isTrue(result.escalation_required);\n\n  const citations = [];\n\n  function addCitation(label) {\n    if (label && !citations.includes(label)) {\n      citations.push(label);\n    }\n  }\n\n  // Preserve any approved labels already returned by the Resolution Agent.\n  if (text.includes('routine event')) {\n    addCitation('Playbook: Routine Event');\n  }\n\n  if (text.includes('address issue')) {\n    addCitation('Playbook: Address Issue');\n  }\n\n  if (text.includes('failed delivery attempts') || text.includes('failed delivery') || text.includes('third failed') || text.includes('attempt')) {\n    addCitation('Playbook: Failed Delivery Attempts');\n  }\n\n  if (text.includes('locker reroute') || text.includes('locker')) {\n    addCitation('Playbook: Locker Reroute');\n  }\n\n  if (text.includes('damaged perishable')) {\n    addCitation('Playbook: Damaged Perishable');\n  }\n\n  if (text.includes('damaged package')) {\n    addCitation('Playbook: Damaged Package');\n  }\n\n  if (text.includes('refused delivery') || text.includes('refused') || text.includes('return')) {\n    addCitation('Playbook: Refused Delivery');\n  }\n\n  if (text.includes('weather delays') || text.includes('weather')) {\n    addCitation('Playbook: Weather Delays');\n  }\n\n  if (text.includes('escalation matrix') || text.includes('escalation')) {\n    addCitation('Playbook: Escalation Matrix');\n  }\n\n  // Infer citations from structured output when the citation text is incomplete.\n  if (classification === 'ROUTINE' || resolution === 'N/A') {\n    addCitation('Playbook: Routine Event');\n  }\n\n  if (classification === 'ADDRESS_ISSUE') {\n    addCitation('Playbook: Address Issue');\n  }\n\n  if (classification === 'ATTEMPTED' || rationale.includes('failed attempt') || rationale.includes('delivery attempt')) {\n    addCitation('Playbook: Failed Delivery Attempts');\n  }\n\n  if (classification === 'REROUTE_TO_LOCKER' || resolution === 'REROUTE_TO_LOCKER' || rationale.includes('locker')) {\n    addCitation('Playbook: Locker Reroute');\n  }\n\n  if (classification === 'DAMAGED' && (rationale.includes('perishable') || text.includes('perishable'))) {\n    addCitation('Playbook: Damaged Perishable');\n  } else if (classification === 'DAMAGED') {\n    addCitation('Playbook: Damaged Package');\n  }\n\n  if (classification === 'REFUSED' || resolution === 'RETURN_TO_SENDER') {\n    addCitation('Playbook: Refused Delivery');\n  }\n\n  if (classification === 'WEATHER_DELAY') {\n    addCitation('Playbook: Weather Delays');\n  }\n\n  // Generic escalation citation rule.\n  // This is intentionally policy-based, not shipment-specific.\n  if (\n    escalationRequired ||\n    escalationType === 'AUTOMATIC' ||\n    escalationType === 'DISCRETIONARY'\n  ) {\n    addCitation('Playbook: Escalation Matrix');\n  }\n\n  // Fallback if no citation could be inferred.\n  if (citations.length === 0) {\n    addCitation(value || 'Playbook: Routine Event');\n  }\n\n  // Preferred ordering for cleaner observability.\n  const preferredOrder = [\n    'Playbook: Routine Event',\n    'Playbook: Address Issue',\n    'Playbook: Failed Delivery Attempts',\n    'Playbook: Locker Reroute',\n    'Playbook: Damaged Package',\n    'Playbook: Damaged Perishable',\n    'Playbook: Refused Delivery',\n    'Playbook: Weather Delays',\n    'Playbook: Escalation Matrix'\n  ];\n\n  return preferredOrder\n    .filter(label => citations.includes(label))\n    .join(', ');\n}\n\nresult.playbook_citation = normalizePlaybookCitation(result.playbook_citation, result);\n\nlet seededTools = [];\ntry {\n  seededTools = $('Evaluate Escalation Rules').first().json.tools_used_seed || [];\n} catch (error) {\n  seededTools = [];\n}\n\nconst toolsUsed = Array.from(new Set([\n  ...(Array.isArray(result.tools_used) ? result.tools_used : []),\n  ...seededTools\n]));\n\nresult.tools_used = toolsUsed;\n\nreturn [\n  {\n    json: {\n      ...$json,\n      resolution_result: result,\n      is_exception: result.is_exception,\n      classification: result.classification,\n      resolution: result.resolution,\n      escalation_required: result.escalation_required,\n      escalation_type: result.escalation_type,\n      recommended_next_step: result.recommended_next_step,\n      rationale: result.rationale,\n      playbook_citation: result.playbook_citation,\n      tools_used: result.tools_used\n    }\n  }\n];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -880,
+        -16
+      ],
+      "id": "sanitized-node-036",
+      "name": "Parse Resolution Output"
+    },
+    {
+      "parameters": {
+        "jsCode": "const raw = $json.output;\n\nlet parsed;\n\ntry {\n  parsed = typeof raw === 'string' ? JSON.parse(raw) : raw;\n} catch (error) {\n  const text = String(raw || '').trim();\n  parsed = { decision: text };\n}\n\nconst result = parsed.output || parsed.response || parsed;\n\nconst decisionText = String(\n  result.decision ||\n  result.status ||\n  result.verdict ||\n  result.output ||\n  raw ||\n  ''\n).trim();\n\nconst decisionUpper = decisionText.toUpperCase();\nconst firstLine = decisionUpper.split(/\\r?\\n/)[0].trim();\n\nconst needsRevision =\n  result.needs_revision === true ||\n  result.needs_revision === 'true' ||\n  firstLine === 'REVISE' ||\n  firstLine === 'REVISION_REQUIRED' ||\n  firstLine === 'REJECT' ||\n  decisionUpper.startsWith('REVISE') ||\n  decisionUpper.includes('NEEDS REVISION') ||\n  decisionUpper.includes('REVISION REQUIRED');\n\nconst escalatedByCritic =\n  result.escalate === true ||\n  result.escalate === 'true' ||\n  firstLine === 'ESCALATE' ||\n  decisionUpper.startsWith('ESCALATE');\n\nconst approved =\n  !needsRevision &&\n  !escalatedByCritic &&\n  (\n    result.approved === true ||\n    result.approved === 'true' ||\n    firstLine === 'ACCEPT' ||\n    firstLine === 'APPROVED' ||\n    firstLine === 'APPROVE' ||\n    decisionUpper.startsWith('ACCEPT') ||\n    decisionUpper.includes('ACCEPT THE RESOLUTION OUTPUT') ||\n    decisionUpper.includes('I WILL ACCEPT') ||\n    decisionUpper.includes('I WILL ACCEPT THE RESOLUTION OUTPUT') ||\n    decisionUpper.endsWith('ACCEPT')\n  );\n\nconst normalizedDecision = escalatedByCritic\n  ? 'ESCALATE'\n  : needsRevision\n    ? 'REVISE'\n    : approved\n      ? 'ACCEPT'\n      : 'UNKNOWN';\n\nconst feedback =\n  result.feedback ||\n  result.rationale ||\n  result.reason ||\n  decisionText.replace(/^(ACCEPT|REVISE|ESCALATE)\\s*[:\\-\\n]?\\s*/i, '').trim();\n\nreturn [\n  {\n    json: {\n      ...$json,\n      critic_result: result,\n      critic_decision: normalizedDecision,\n      critic_approved: approved,\n      needs_revision: needsRevision,\n      critic_escalate: escalatedByCritic,\n      critic_feedback: feedback,\n      critic_issues: result.issues || [],\n      critic_confidence: result.confidence || null\n    }\n  }\n];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -112,
+        64
+      ],
+      "id": "sanitized-node-037",
+      "name": "Parse Critic Resolution Output"
+    },
+    {
+      "parameters": {
+        "jsCode": "const raw = $json.output;\n\nfunction tryParseJson(value) {\n  if (value === null || value === undefined) return {};\n\n  if (typeof value !== 'string') return value;\n\n  const text = value.trim();\n\n  try {\n    return JSON.parse(text);\n  } catch (error) {\n    const match = text.match(/\\{[\\s\\S]*\\}/);\n    if (match) {\n      try {\n        return JSON.parse(match[0]);\n      } catch (innerError) {}\n    }\n  }\n\n  return { decision: text };\n}\n\nfunction unwrapParsed(value) {\n  const parsed = tryParseJson(value);\n\n  if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {\n    return parsed.output || parsed.response || parsed;\n  }\n\n  return parsed;\n}\n\nfunction getCommunicationOutputRaw() {\n  try {\n    return $('Communication Agent').first().json.output;\n  } catch (error) {\n    return null;\n  }\n}\n\nfunction getResolutionDecided() {\n  try {\n    return $('Resolution Decided').first().json;\n  } catch (error) {\n    return {};\n  }\n}\n\nfunction parseCommunicationOutput(value) {\n  const parsed = unwrapParsed(value);\n\n  if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {\n    const nested = parsed.output || parsed.response;\n\n    if (typeof nested === 'string') {\n      return parseCommunicationOutput(nested);\n    }\n\n    return {\n      channel: parsed.channel || parsed.communication_channel || '',\n      message: parsed.message || parsed.customer_message || parsed.text || ''\n    };\n  }\n\n  return {\n    channel: '',\n    message: String(value || '').trim()\n  };\n}\n\nconst parsed = tryParseJson(raw);\nconst result = parsed.output || parsed.response || parsed;\n\nconst decisionText = String(\n  result.decision ||\n  result.status ||\n  result.verdict ||\n  result.output ||\n  raw ||\n  ''\n).trim();\n\nconst decisionUpper = decisionText.toUpperCase();\nconst firstLine = decisionUpper.split(/\\r?\\n/)[0].trim();\n\nconst needsRevision =\n  result.needs_revision === true ||\n  result.needs_revision === 'true' ||\n  firstLine === 'REVISE' ||\n  firstLine === 'REVISION_REQUIRED' ||\n  firstLine === 'REJECT' ||\n  decisionUpper.includes('NEEDS REVISION') ||\n  decisionUpper.includes('REVISION REQUIRED') ||\n  decisionUpper.startsWith('REVISE');\n\nconst escalatedByCritic =\n  result.escalate === true ||\n  result.escalate === 'true' ||\n  firstLine === 'ESCALATE' ||\n  decisionUpper.startsWith('ESCALATE');\n\nconst approved =\n  !needsRevision &&\n  !escalatedByCritic &&\n  (\n    result.approved === true ||\n    result.approved === 'true' ||\n    firstLine === 'ACCEPT' ||\n    firstLine === 'APPROVED' ||\n    firstLine === 'APPROVE' ||\n    decisionUpper.startsWith('ACCEPT') ||\n    decisionUpper.includes('ACCEPT THE MESSAGE') ||\n    decisionUpper.includes('ACCEPT THE COMMUNICATION') ||\n    decisionUpper.endsWith('ACCEPT')\n  );\n\nconst normalizedDecision = escalatedByCritic\n  ? 'ESCALATE'\n  : needsRevision\n    ? 'REVISE'\n    : approved\n      ? 'ACCEPT'\n      : 'UNKNOWN';\n\nconst feedback =\n  result.feedback ||\n  result.rationale ||\n  result.reason ||\n  decisionText.replace(/^(ACCEPT|REVISE|ESCALATE)\\s*[:\\-]?\\s*/i, '').trim();\n\nconst communicationOutputRaw = getCommunicationOutputRaw();\nconst communicationOutput = parseCommunicationOutput(communicationOutputRaw);\nconst resolutionDecided = getResolutionDecided();\n\nreturn [\n  {\n    json: {\n      ...$json,\n      communication_output_raw: communicationOutputRaw,\n      communication_output: communicationOutput,\n      communication_channel: communicationOutput.channel,\n      customer_message: communicationOutput.message,\n      resolution_decided: resolutionDecided,\n      communication_critic_result: result,\n      communication_critic_decision: normalizedDecision,\n      communication_critic_approved: approved,\n      communication_needs_revision: needsRevision,\n      communication_escalate: escalatedByCritic,\n      communication_critic_feedback: feedback,\n      communication_critic_issues: result.issues || [],\n      communication_critic_confidence: result.confidence || null\n    }\n  }\n];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1728,
+        -160
+      ],
+      "id": "sanitized-node-038",
+      "name": "Parse Critic Communication Output Code"
+    },
+    {
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "value": "gpt-4.1",
+          "mode": "list",
+          "cachedResultName": "gpt-4.1"
+        },
+        "options": {
+          "temperature": 0
+        }
+      },
+      "id": "sanitized-node-039",
+      "name": "Evaluation Chat Model GPT-4.1",
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "typeVersion": 1.2,
+      "position": [
+        -400,
+        288
+      ]
+    },
+    {
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "value": "gpt-4.1-mini",
+          "mode": "list",
+          "cachedResultName": "gpt-4.1-mini"
+        },
+        "options": {
+          "temperature": 0.2
+        }
+      },
+      "id": "sanitized-node-040",
+      "name": "Generation Chat Model - GPT4.1 mini",
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "typeVersion": 1.2,
+      "position": [
+        -1200,
+        240
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "return $input.all().map(item => {\n  const rationale = String(item.json.rationale || '').toLowerCase();\n  const statusCode = String(\n    item.json.consolidated_event?.status_code ||\n    item.json.status_code ||\n    ''\n  ).toUpperCase();\n\n  const routineStatuses = ['SCANNED', 'DELIVERED', 'IN_TRANSIT', 'OUT_FOR_DELIVERY'];\n\n  const isRoutineGuardrail =\n    String(item.json.is_exception || '').toUpperCase() === 'NO' &&\n    (\n      rationale.includes('routine operational noise') ||\n      routineStatuses.includes(statusCode)\n    );\n\n  if (isRoutineGuardrail) {\n    item.json.playbook_citations = ['Playbook: Routine Event'];\n  } else if (!Array.isArray(item.json.playbook_citations)) {\n    item.json.playbook_citations = [];\n  }\n\n  return item;\n});"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1712,
+        -592
+      ],
+      "id": "sanitized-node-041",
+      "name": "Guardrail Finalize code"
+    },
+    {
+      "parameters": {
+        "jsCode": "return $input.all().map(item => {\n  const j = item.json || {};\n\n  return {\n    json: {\n      shipment_id: j.shipment_id,\n      is_exception: j.is_exception,\n      resolution: j.resolution,\n      escalated: j.escalated,\n      tone_label: j.tone_label || \"N/A\",\n      channel: j.channel || \"N/A\",\n      customer_message: j.customer_message || \"\",\n      rationale: j.rationale || \"\",\n      tools_used: Array.isArray(j.tools_used) ? j.tools_used : [],\n      playbook_citations: Array.isArray(j.playbook_citations) ? j.playbook_citations : []\n    }\n  };\n});"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1920,
+        -592
+      ],
+      "id": "sanitized-node-042",
+      "name": "Return Eval Output"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "When chat message received": {
+      "main": [
+        [
+          {
+            "node": "Load Playbook PDF",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Load Delivery Log CSV",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Run from Eval": {
+      "main": [
+        [
+          {
+            "node": "Load Playbook PDF",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Load Delivery Log CSV",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Load Playbook PDF": {
+      "main": [
+        [
+          {
+            "node": "Build Playbook Vector Store",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Default Data Loader": {
+      "ai_document": [
+        [
+          {
+            "node": "Build Playbook Vector Store",
+            "type": "ai_document",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Recursive Character Text Splitter": {
+      "ai_textSplitter": [
+        [
+          {
+            "node": "Default Data Loader",
+            "type": "ai_textSplitter",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Embeddings OpenAI": {
+      "ai_embedding": [
+        [
+          {
+            "node": "Build Playbook Vector Store",
+            "type": "ai_embedding",
+            "index": 0
+          },
+          {
+            "node": "Tool_playbook_search",
+            "type": "ai_embedding",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Load Delivery Log CSV": {
+      "main": [
+        [
+          {
+            "node": "Extract Log Rows",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract Log Rows": {
+      "main": [
+        [
+          {
+            "node": "Select Target Shipment",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Select Target Shipment": {
+      "main": [
+        [
+          {
+            "node": "Keep Target Shipment Rows",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Keep Target Shipment Rows": {
+      "main": [
+        [
+          {
+            "node": "Collect Shipment Rows",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Collect Shipment Rows": {
+      "main": [
+        [
+          {
+            "node": "Shape Runtime Input",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Shape Runtime Input": {
+      "main": [
+        [
+          {
+            "node": "Preprocess + Consolidate",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Preprocess + Consolidate": {
+      "main": [
+        [
+          {
+            "node": "Screen Prompt Injection",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Screen Prompt Injection": {
+      "main": [
+        [
+          {
+            "node": "Guardrail Finalize",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Screen Routine Events",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Screen Routine Events": {
+      "main": [
+        [
+          {
+            "node": "Guardrail Finalize",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Evaluate Escalation Rules",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Evaluate Escalation Rules": {
+      "main": [
+        [
+          {
+            "node": "Resolution Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Tool_customer_profile_lookup": {
+      "ai_tool": [
+        [
+          {
+            "node": "Resolution Agent",
+            "type": "ai_tool",
+            "index": 0
+          },
+          {
+            "node": "Communication Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Tool_locker_availability": {
+      "ai_tool": [
+        [
+          {
+            "node": "Resolution Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Resolution Agent": {
+      "main": [
+        [
+          {
+            "node": "Parse Resolution Output",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Catch Contradictory Output": {
+      "main": [
+        [
+          {
+            "node": "Mark Escalated",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Critic - Resolution",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Tool_playbook_search": {
+      "ai_tool": [
+        [
+          {
+            "node": "Critic - Resolution",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Critic - Resolution": {
+      "main": [
+        [
+          {
+            "node": "Parse Critic Resolution Output",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Route Critic Decision": {
+      "main": [
+        [
+          {
+            "node": "Accept Resolution",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Check Revise Limit",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Mark Escalated",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Mark Escalated",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [],
+        []
+      ]
+    },
+    "Check Revise Limit": {
+      "main": [
+        [
+          {
+            "node": "Increment and Feed Back",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Mark Escalated",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Increment and Feed Back": {
+      "main": [
+        [
+          {
+            "node": "Resolution Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Accept Resolution": {
+      "main": [
+        [
+          {
+            "node": "Resolution Decided",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Mark Escalated": {
+      "main": [
+        [
+          {
+            "node": "Resolution Decided",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Resolution Decided": {
+      "main": [
+        [
+          {
+            "node": "Is It An Exception?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Is It An Exception?": {
+      "main": [
+        [
+          {
+            "node": "Communication Agent",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "No Message Finalize",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Communication Agent": {
+      "main": [
+        [
+          {
+            "node": "Critic - Communication",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Critic - Communication": {
+      "main": [
+        [
+          {
+            "node": "Parse Critic Communication Output Code",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse Resolution Output": {
+      "main": [
+        [
+          {
+            "node": "Catch Contradictory Output",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse Critic Resolution Output": {
+      "main": [
+        [
+          {
+            "node": "Route Critic Decision",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Finalize Output": {
+      "main": [
+        []
+      ]
+    },
+    "Parse Critic Communication Output Code": {
+      "main": [
+        [
+          {
+            "node": "Finalize Output",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Evaluation Chat Model GPT-4.1": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Critic - Resolution",
+            "type": "ai_languageModel",
+            "index": 0
+          },
+          {
+            "node": "Critic - Communication",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Generation Chat Model - GPT4.1 mini": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Resolution Agent",
+            "type": "ai_languageModel",
+            "index": 0
+          },
+          {
+            "node": "Communication Agent",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Guardrail Finalize": {
+      "main": [
+        [
+          {
+            "node": "Guardrail Finalize code",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Guardrail Finalize code": {
+      "main": [
+        [
+          {
+            "node": "Return Eval Output",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "availableInMCP": false
+  },
+  "tags": []
+}

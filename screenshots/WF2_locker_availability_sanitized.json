@@ -1,0 +1,121 @@
+{
+  "name": "P3 - Workflow 2 - Locker Availability (Sanitized - Review Needed)",
+  "nodes": [
+    {
+      "parameters": {
+        "inputSource": "jsonExample",
+        "jsonExample": "{\n  \"zip_code\": \"10003\",\n  \"package_size\": \"MEDIUM\"\n}"
+      },
+      "id": "sanitized-node-001",
+      "name": "When called by Agent",
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1.1,
+      "position": [
+        16,
+        -1088
+      ]
+    },
+    {
+      "parameters": {
+        "command": "ZIP_CODE=\"{{ $json.zip_code }}\" python3 << 'PYEOF'\nimport sqlite3, json, os\nzip_code = os.environ.get(\"ZIP_CODE\", \"\").strip()\nif not zip_code:\n    print(json.dumps({\"error\": \"zip_code is required\"}))\nelse:\n    conn = sqlite3.connect(\"REPLACE_WITH_SHARED_DATA_PATH/customers.db\")\n    conn.row_factory = sqlite3.Row\n    c = conn.cursor()\n    c.execute(\"SELECT * FROM lockers WHERE zip_code = ?\", (zip_code,))\n    rows = c.fetchall()\n    conn.close()\n    print(json.dumps([dict(r) for r in rows]))\nPYEOF"
+      },
+      "id": "sanitized-node-002",
+      "name": "Query Lockers DB",
+      "type": "n8n-nodes-base.executeCommand",
+      "typeVersion": 1,
+      "position": [
+        288,
+        -1088
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "5e2510da-2295-4c02-81d9-71eb4657e331",
+              "name": "lockers",
+              "value": "={{ JSON.parse($json.stdout || '[]') }}",
+              "type": "array"
+            },
+            {
+              "id": "6adde9a0-68cd-4905-b97e-f49aca52dc68",
+              "name": "package_size",
+              "value": "={{ $('When called by Agent').item.json.package_size }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "sanitized-node-003",
+      "name": "Parse Rows into Locker Array",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        496,
+        -1088
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "function cleanText(value, fallback = '') {\n  if (value === null || value === undefined) return fallback;\n\n  return String(value)\n    .replace(/^=/, '')\n    .trim();\n}\n\nfunction cleanUpper(value, fallback = '') {\n  return cleanText(value, fallback)\n    .toUpperCase()\n    .trim();\n}\n\nconst input = $input.first().json || {};\n\nconst lockers = Array.isArray(input.lockers) ? input.lockers : [];\n\nconst packageSize = cleanUpper(\n  input.package_size ||\n  $('When called by Agent').first().json.package_size ||\n  ''\n);\n\nconst zipCode = cleanText(\n  $('When called by Agent').first().json.zip_code ||\n  input.zip_code ||\n  ''\n);\n\nconst sizeRank = {\n  SMALL: 1,\n  MEDIUM: 2,\n  LARGE: 3,\n};\n\nfunction evaluateLocker(locker) {\n  const maxSize = cleanUpper(locker.max_package_size || '');\n  const capacityStatus = cleanUpper(locker.capacity_status || '');\n\n  let eligible = true;\n  let reason = 'Compatible';\n\n  if ((sizeRank[maxSize] || 0) < (sizeRank[packageSize] || 0)) {\n    eligible = false;\n    reason = `Locker max ${maxSize} < package ${packageSize}`;\n  } else if (capacityStatus === 'FULL') {\n    eligible = false;\n    reason = 'Locker is FULL';\n  } else if (capacityStatus === 'LIMITED' && packageSize !== 'SMALL') {\n    eligible = false;\n    reason = 'Locker is LIMITED - only SMALL packages accepted';\n  }\n\n  return {\n    ...locker,\n    zip_code: cleanText(locker.zip_code || zipCode),\n    max_package_size: maxSize || locker.max_package_size,\n    capacity_status: capacityStatus || locker.capacity_status,\n    eligible,\n    reason,\n    tool_name: 'Tool_locker_availability',\n  };\n}\n\nconst evaluatedLockers = lockers.map(evaluateLocker);\nconst eligibleLockers = evaluatedLockers.filter(locker => locker.eligible);\n\nlet availability_status = 'UNAVAILABLE';\nlet reason = 'No eligible locker is available for this package.';\n\nif (lockers.length === 0) {\n  availability_status = 'NO_LOCKERS_FOUND';\n  reason = `No lockers found for zip code ${zipCode}.`;\n} else if (eligibleLockers.length > 0) {\n  availability_status = 'AVAILABLE';\n  reason = 'Eligible locker is available.';\n} else if (\n  evaluatedLockers.some(\n    locker => cleanUpper(locker.capacity_status || '') === 'FULL'\n  )\n) {\n  availability_status = 'FULL';\n  reason = 'Local locker is full or unavailable.';\n}\n\nreturn [\n  {\n    json: {\n      tool_name: 'Tool_locker_availability',\n      zip_code: zipCode,\n      package_size: packageSize,\n      availability_status,\n      eligible: eligibleLockers.length > 0,\n      reason,\n      selected_locker: eligibleLockers[0] || null,\n      lockers: evaluatedLockers,\n    },\n  },\n];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        720,
+        -1088
+      ],
+      "id": "sanitized-node-004",
+      "name": "Build Locker Tool Response code"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "When called by Agent": {
+      "main": [
+        [
+          {
+            "node": "Query Lockers DB",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Query Lockers DB": {
+      "main": [
+        [
+          {
+            "node": "Parse Rows into Locker Array",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse Rows into Locker Array": {
+      "main": [
+        [
+          {
+            "node": "Build Locker Tool Response code",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Locker Tool Response code": {
+      "main": [
+        []
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "availableInMCP": false
+  },
+  "tags": []
+}
