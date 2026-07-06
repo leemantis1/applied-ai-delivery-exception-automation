@@ -1,0 +1,92 @@
+{
+  "name": "P3 - Workflow 1 - Customer Profile Lookup (Sanitized - Review Needed)",
+  "nodes": [
+    {
+      "parameters": {
+        "inputSource": "jsonExample",
+        "jsonExample": "{\n  \"customer_id\": \"CUST-001\",\n  \"include_pii\": false\n}"
+      },
+      "id": "sanitized-node-001",
+      "name": "When called by Agent",
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1.1,
+      "position": [
+        0,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "command": "=export CUSTOMER_ID=\"{{ $('When called by Agent').first().json.customer_id || $json.customer_id || $json.query?.customer_id || '' }}\"\npython3 << 'PYEOF'\nimport sqlite3, json, os\n\ncustomer_id = os.environ.get(\"CUSTOMER_ID\", \"\").strip()\n\nif not customer_id:\n    print(json.dumps({\"error\": \"customer_id is required\"}))\nelse:\n    conn = sqlite3.connect(\"REPLACE_WITH_SHARED_DATA_PATH/customers.db\")\n    conn.row_factory = sqlite3.Row\n    c = conn.cursor()\n    c.execute(\"SELECT * FROM customers WHERE customer_id = ?\", (customer_id,))\n    row = c.fetchone()\n    conn.close()\n\n    if row is None:\n        print(json.dumps({\"error\": \"customer not found\", \"customer_id\": customer_id}))\n    else:\n        print(json.dumps(dict(row)))\nPYEOF"
+      },
+      "id": "sanitized-node-002",
+      "name": "Query Customer DB",
+      "type": "n8n-nodes-base.executeCommand",
+      "typeVersion": 1,
+      "position": [
+        288,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "53bbaa57-23aa-40d6-b6c1-8934b1a7683d",
+              "name": "profile",
+              "value": "={{ (() => { const r = JSON.parse($json.stdout || '{}'); if (String($('When called by Agent').item.json.include_pii) !== 'true') { delete r.name; } return r; })() }}",
+              "type": "object"
+            },
+            {
+              "id": "bb7fd822-001d-40f4-b629-5ed5cd4919c1",
+              "name": "tool_name",
+              "value": "Tool_customer_profile_lookup",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "sanitized-node-003",
+      "name": "Format Profile and Redact PII",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        560,
+        0
+      ]
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "When called by Agent": {
+      "main": [
+        [
+          {
+            "node": "Query Customer DB",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Query Customer DB": {
+      "main": [
+        [
+          {
+            "node": "Format Profile and Redact PII",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "availableInMCP": false
+  },
+  "tags": []
+}
