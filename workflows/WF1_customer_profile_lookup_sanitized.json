@@ -1,5 +1,5 @@
 {
-  "name": "P3 - Workflow 1 - Customer Profile Lookup (Sanitized - Review Needed)",
+  "name": "P3 - Workflow 1 - Customer Profile Lookup",
   "nodes": [
     {
       "parameters": {
