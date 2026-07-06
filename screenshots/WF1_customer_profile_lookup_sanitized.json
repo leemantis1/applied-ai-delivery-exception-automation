@@ -1,0 +1,284 @@
+{
+  "name": "P3 - Workflow 4 - Evaluation Harness (Sanitized - Review Needed)",
+  "nodes": [
+    {
+      "parameters": {},
+      "id": "sanitized-node-001",
+      "name": "Manual Trigger",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        -80,
+        -624
+      ]
+    },
+    {
+      "parameters": {
+        "fileSelector": "REPLACE_WITH_SHARED_DATA_PATH/ground_truth.csv",
+        "options": {}
+      },
+      "id": "sanitized-node-002",
+      "name": "Load Ground Truth CSV",
+      "type": "n8n-nodes-base.readWriteFile",
+      "typeVersion": 1,
+      "position": [
+        96,
+        -624
+      ]
+    },
+    {
+      "parameters": {
+        "options": {
+          "headerRow": true
+        }
+      },
+      "id": "sanitized-node-003",
+      "name": "Extract Ground Truth Rows",
+      "type": "n8n-nodes-base.extractFromFile",
+      "typeVersion": 1,
+      "position": [
+        272,
+        -624
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Build the canonical ground-truth row per shipment and the list of shipments to run.\n// Canonical = last row with is_exception === 'YES'; if none, the (last) NO row.\nconst rows = $input.all().map(i => i.json);\nconst byShip = {};\nfor (const r of rows) {\n  const sid = (r.shipment_id || '').trim();\n  if (!sid) continue;\n  (byShip[sid] = byShip[sid] || []).push(r);\n}\nconst out = [];\nfor (const sid of Object.keys(byShip)) {\n  const grp = byShip[sid];\n  const yes = grp.filter(r => String(r.is_exception).toUpperCase() === 'YES');\n  const canonical = yes.length ? yes[yes.length - 1] : grp[grp.length - 1];\n  out.push({ json: {\n    target_shipment_id: sid,\n    gt_is_exception: String(canonical.is_exception || '').toUpperCase(),\n    gt_resolution: canonical.expected_resolution || 'N/A',\n    gt_tone: canonical.expected_tone || 'N/A',\n    gt_should_escalate: String(canonical.should_escalate || '').toUpperCase() || 'N/A',\n  }});\n}\nreturn out;"
+      },
+      "id": "sanitized-node-004",
+      "name": "Build Cases",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        432,
+        -624
+      ]
+    },
+    {
+      "parameters": {
+        "workflowId": {
+          "__rl": true,
+          "value": "REPLACE_WITH_IMPORTED_WF3_ID",
+          "mode": "id"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "target_shipment_id": "=={{ $json.target_shipment_id }}"
+          },
+          "matchingColumns": [
+            "target_shipment_id"
+          ],
+          "schema": [
+            {
+              "id": "target_shipment_id",
+              "displayName": "target_shipment_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string",
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": true
+        },
+        "mode": "each",
+        "options": {
+          "waitForSubWorkflow": true
+        }
+      },
+      "id": "sanitized-node-005",
+      "name": "Run Main Pipeline per Shipment",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.2,
+      "position": [
+        768,
+        -624
+      ]
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=You are an expert Evaluation Judge. Your task is to score the reasoning trajectory coherence of a delivery exception pipeline on a 1-5 scale.\n\nCompare the Pipeline Result against the Expected Ground Truth fields and the Expected Ground Truth Reasoning.\n\nEvaluate only observable outputs and trace evidence. Do not require or evaluate hidden chain-of-thought. Use the pipeline's final exception flag, resolution, escalation flag, communication tone, rationale, playbook citations, tool usage, critic outputs, and customer communication when available.\n\nScoring Scale:\n5 - Perfect Alignment: The pipeline's exception classification, resolution, escalation decision, tone, rationale, and cited policy support are consistent with the expected ground truth.\n4 - Minor Deviation: The main outcome is correct, but there are small gaps in rationale, wording, policy citation, or explanation.\n3 - Partial Match: The pipeline identifies the broad scenario but misses an important escalation trigger, tone requirement, resolution detail, or policy rationale.\n2 - Poor Alignment: The pipeline has significant errors in classification, resolution, escalation, tone, or rationale.\n1 - Complete Failure: The result is contradictory, unsupported, unsafe, or mostly opposite of the expected ground truth.\n\nExpected Ground Truth:\n{\n  \"is_exception\": \"{{ $json.is_exception }}\",\n  \"expected_resolution\": \"{{ $json.expected_resolution }}\",\n  \"expected_tone\": \"{{ $json.expected_tone }}\",\n  \"should_escalate\": \"{{ $json.should_escalate }}\",\n  \"ground_truth_reasoning\": \"{{ $json.ground_truth_reasoning }}\"\n}\n\nPipeline Result:\n{{ JSON.stringify($json) }}\n\nReturn only valid structured JSON with these exact keys:\n{\n  \"coherence_score\": <integer 1-5>,\n  \"justification\": \"<brief explanation comparing the pipeline result to the expected ground truth>\"\n}"
+      },
+      "id": "sanitized-node-006",
+      "name": "Coherence Judge",
+      "type": "@n8n/n8n-nodes-langchain.chainLlm",
+      "typeVersion": 1.5,
+      "position": [
+        928,
+        -624
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "function clean(value, fallback = '') {\n  if (value === null || value === undefined) return fallback;\n\n  if (typeof value === 'string') {\n    return value.replace(/^=/, '').trim();\n  }\n\n  return value;\n}\n\nfunction norm(value) {\n  return String(clean(value, ''))\n    .trim()\n    .toUpperCase();\n}\n\nfunction toEscalationBool(value) {\n  const text = norm(value);\n\n  if (text === 'YES' || text === 'TRUE') return true;\n  if (text === 'NO' || text === 'FALSE') return false;\n  if (text === 'N/A' || text === 'NA' || text === '') return null;\n\n  return null;\n}\n\nfunction pct(numerator, denominator) {\n  if (!denominator) return 100;\n  return Math.round((numerator / denominator) * 10000) / 100;\n}\n\nfunction avg(values) {\n  const nums = values\n    .map(v => Number(v))\n    .filter(v => Number.isFinite(v));\n\n  if (!nums.length) return 0;\n\n  return Math.round((nums.reduce((a, b) => a + b, 0) / nums.length) * 100) / 100;\n}\n\nfunction toArray(value) {\n  if (Array.isArray(value)) return value;\n\n  if (value === null || value === undefined) return [];\n\n  const text = String(value)\n    .replace(/^=/, '')\n    .trim();\n\n  if (!text) return [];\n\n  try {\n    const parsed = JSON.parse(text);\n    if (Array.isArray(parsed)) return parsed;\n  } catch (error) {}\n\n  return text\n    .split(',')\n    .map(s => s.trim())\n    .filter(Boolean);\n}\n\nfunction buildToolChecker(toolsUsed) {\n  const normalizedTools = toArray(toolsUsed).map(t =>\n    String(t)\n      .replace(/^=/, '')\n      .trim()\n      .toLowerCase()\n  );\n\n  const aliases = {\n    Tool_customer_profile_lookup: [\n      'tool_customer_profile_lookup',\n      'customer_profile_lookup',\n      'customer profile lookup'\n    ],\n    Tool_locker_availability: [\n      'tool_locker_availability',\n      'locker_availability',\n      'locker availability'\n    ],\n    check_escalation_rules: [\n      'check_escalation_rules',\n      'escalation_rules',\n      'check escalation rules'\n    ],\n    resolution_agent: [\n      'resolution_agent',\n      'resolution agent'\n    ],\n    communication_agent: [\n      'communication_agent',\n      'communication agent'\n    ]\n  };\n\n  return function hasTool(expectedTool) {\n    const expectedAliases = aliases[expectedTool] || [expectedTool.toLowerCase()];\n    return expectedAliases.some(alias => normalizedTools.includes(alias.toLowerCase()));\n  };\n}\n\nfunction deriveExpectedTools(item) {\n  const gtException = norm(item.gt_is_exception || item.ground_truth_is_exception);\n  const predictedException = norm(item.is_exception);\n\n  if (gtException === 'NO' || predictedException === 'NO') {\n    return [];\n  }\n\n  const expectedTools = [\n    'Tool_customer_profile_lookup',\n    'check_escalation_rules',\n    'resolution_agent',\n    'communication_agent'\n  ];\n\n  const resolution = norm(item.resolution || item.gt_resolution || item.ground_truth_resolution);\n  const citationsText = toArray(item.playbook_citations).join(' ').toLowerCase();\n  const rationaleText = String(item.rationale || '').toLowerCase();\n\n  const needsLocker =\n    resolution === 'REROUTE_TO_LOCKER' ||\n    citationsText.includes('locker reroute') ||\n    rationaleText.includes('locker');\n\n  if (needsLocker) {\n    expectedTools.push('Tool_locker_availability');\n  }\n\n  return expectedTools;\n}\n\nfunction evaluateTools(item) {\n  const toolsUsed = toArray(item.tools_used);\n  const expectedTools = deriveExpectedTools(item);\n  const hasTool = buildToolChecker(toolsUsed);\n\n  const isRoutine =\n    norm(item.gt_is_exception || item.ground_truth_is_exception) === 'NO' ||\n    norm(item.is_exception) === 'NO';\n\n  if (isRoutine) {\n    return {\n      expected_tools: [],\n      missing_tools: [],\n      unexpected_tools: toolsUsed.length ? toolsUsed : [],\n      tool_match: toolsUsed.length === 0\n    };\n  }\n\n  const missingTools = expectedTools.filter(tool => !hasTool(tool));\n\n  const needsLocker = expectedTools.includes('Tool_locker_availability');\n  const hasLocker = hasTool('Tool_locker_availability');\n\n  const unexpectedTools = [];\n\n  if (!needsLocker && hasLocker) {\n    unexpectedTools.push('Tool_locker_availability');\n  }\n\n  return {\n    expected_tools: expectedTools,\n    missing_tools: missingTools,\n    unexpected_tools: unexpectedTools,\n    tool_match: missingTools.length === 0 && unexpectedTools.length === 0\n  };\n}\n\nconst items = $input.all().map(item => item.json || {});\n\nconst perShipment = items.map(item => {\n  const shipmentId = clean(item.shipment_id);\n\n  const predException = norm(item.is_exception);\n  const gtException = norm(item.gt_is_exception || item.ground_truth_is_exception);\n\n  const predResolution = norm(item.resolution);\n  const gtResolution = norm(item.gt_resolution || item.ground_truth_resolution);\n\n  const predTone = norm(item.tone_label);\n  const gtTone = norm(item.gt_tone || item.ground_truth_tone);\n\n  const predEscalated = item.escalated === true;\n  const gtEscalated = toEscalationBool(item.gt_should_escalate || item.ground_truth_should_escalate);\n\n  const excMatch = predException === gtException;\n  const resMatch = predResolution === gtResolution;\n  const toneMatch = predTone === gtTone;\n\n  const escMatch =\n    gtEscalated === null\n      ? null\n      : predEscalated === gtEscalated;\n\n  const toolEval = evaluateTools(item);\n\n  const messageOk =\n    gtException === 'YES'\n      ? String(item.customer_message || '').trim().length > 0\n      : true;\n\n  const taskComplete =\n    excMatch &&\n    resMatch &&\n    toneMatch &&\n    escMatch !== false &&\n    messageOk;\n\n  const coherence = Number(item.coherence_score || 0);\n\n  return {\n    shipment_id: shipmentId,\n    is_exception: `${predException} / ${gtException}`,\n    resolution: `${predResolution} / ${gtResolution}`,\n    tone: `${predTone} / ${gtTone}`,\n    escalate: `${predEscalated} / ${clean(item.gt_should_escalate || item.ground_truth_should_escalate)}`,\n    tools_used: toArray(item.tools_used),\n    expected_tools: toolEval.expected_tools,\n    missing_tools: toolEval.missing_tools,\n    unexpected_tools: toolEval.unexpected_tools,\n    exc_match: excMatch,\n    res_match: resMatch,\n    tone_match: toneMatch,\n    esc_match: escMatch,\n    tool_match: toolEval.tool_match,\n    task_complete: taskComplete,\n    coherence,\n    rationale: clean(item.rationale, ''),\n    playbook_citations: toArray(item.playbook_citations)\n  };\n});\n\nconst n = perShipment.length;\n\nconst taskCompleteCount = perShipment.filter(r => r.task_complete).length;\nconst excMatchCount = perShipment.filter(r => r.exc_match).length;\nconst resMatchCount = perShipment.filter(r => r.res_match).length;\nconst toneMatchCount = perShipment.filter(r => r.tone_match).length;\nconst toolMatchCount = perShipment.filter(r => r.tool_match).length;\n\nconst escalationRows = perShipment.filter(r => r.esc_match !== null);\nconst escalationMatchCount = escalationRows.filter(r => r.esc_match === true).length;\n\nreturn [\n  {\n    json: {\n      summary: {\n        n_shipments: n,\n        task_completion_rate_pct: pct(taskCompleteCount, n),\n        escalation_accuracy_pct: pct(escalationMatchCount, escalationRows.length),\n        resolution_accuracy_pct: pct(resMatchCount, n),\n        tone_accuracy_pct: pct(toneMatchCount, n),\n        tool_call_accuracy_pct: pct(toolMatchCount, n),\n        mean_coherence_1to5: avg(perShipment.map(r => r.coherence))\n      },\n      per_shipment: perShipment\n    }\n  }\n];"
+      },
+      "id": "sanitized-node-007",
+      "name": "Evaluate All Metrics",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1392,
+        -624
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "return $input.all();"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        576,
+        -624
+      ],
+      "id": "sanitized-node-008",
+      "name": "Smoke Test Filter code"
+    },
+    {
+      "parameters": {
+        "jsCode": "function clean(value, fallback = '') {\n  if (value === null || value === undefined) return fallback;\n\n  if (typeof value === 'string') {\n    return value.replace(/^=/, '').trim();\n  }\n\n  return value;\n}\n\nfunction toBool(value) {\n  if (value === true) return true;\n  if (value === false) return false;\n\n  const text = String(value ?? '')\n    .replace(/^=/, '')\n    .trim()\n    .toLowerCase();\n\n  return text === 'true' || text === 'yes';\n}\n\nfunction toArray(value) {\n  if (Array.isArray(value)) return value;\n\n  if (value === null || value === undefined) return [];\n\n  const text = String(value)\n    .replace(/^=/, '')\n    .trim();\n\n  if (!text) return [];\n\n  try {\n    const parsed = JSON.parse(text);\n    if (Array.isArray(parsed)) return parsed;\n  } catch (error) {}\n\n  return text\n    .split(',')\n    .map(s => s.trim())\n    .filter(Boolean);\n}\n\nfunction parseCoherence(value) {\n  const raw = String(value || '').trim();\n\n  try {\n    return JSON.parse(raw);\n  } catch (error) {\n    const match = raw.match(/\\{[\\s\\S]*\\}/);\n    if (match) {\n      try {\n        return JSON.parse(match[0]);\n      } catch (innerError) {}\n    }\n  }\n\n  return {\n    coherence_score: 0,\n    justification: 'Coherence judge output could not be parsed.'\n  };\n}\n\nconst coherenceItems = $input.all();\nconst predictionItems = $('Run Main Pipeline per Shipment').all();\nconst groundTruthItems = $('Smoke Test Filter code').all();\n\nreturn coherenceItems.map((item, index) => {\n  const pred = predictionItems[index]?.json || {};\n  const gt = groundTruthItems[index]?.json || {};\n  const coherence = parseCoherence(item.json.text);\n\n  const score = Number(clean(coherence.coherence_score, 0));\n\n  const shipmentId = clean(\n    pred.shipment_id ||\n    gt.target_shipment_id ||\n    gt.shipment_id ||\n    ''\n  );\n\n  const groundTruthReasoning = clean(\n    gt.ground_truth_reasoning ||\n    gt.gt_reasoning ||\n    gt.expected_reasoning ||\n    gt.reasoning ||\n    gt.ground_truth_rationale ||\n    gt.expected_rationale ||\n    '',\n    ''\n  );\n\n  return {\n    json: {\n      shipment_id: shipmentId,\n\n      is_exception: clean(pred.is_exception),\n      resolution: clean(pred.resolution),\n      escalated: toBool(pred.escalated),\n      tone_label: clean(pred.tone_label, 'N/A') || 'N/A',\n      channel: clean(pred.channel, 'N/A') || 'N/A',\n      customer_message: clean(pred.customer_message, ''),\n      rationale: clean(pred.rationale, ''),\n\n      tools_used: toArray(pred.tools_used),\n      playbook_citations: toArray(pred.playbook_citations),\n\n      critic_resolution: pred.critic_resolution || null,\n      critic_communication: pred.critic_communication || null,\n\n      coherence_score: Number.isFinite(score) ? score : 0,\n      coherence_justification: clean(coherence.justification, ''),\n\n      ground_truth_is_exception: clean(gt.gt_is_exception || gt.is_exception),\n      ground_truth_resolution: clean(gt.gt_resolution || gt.expected_resolution),\n      ground_truth_tone: clean(gt.gt_tone || gt.expected_tone),\n      ground_truth_should_escalate: clean(gt.gt_should_escalate || gt.should_escalate),\n      ground_truth_reasoning: groundTruthReasoning,\n\n      gt_is_exception: clean(gt.gt_is_exception || gt.is_exception),\n      gt_resolution: clean(gt.gt_resolution || gt.expected_resolution),\n      gt_tone: clean(gt.gt_tone || gt.expected_tone),\n      gt_should_escalate: clean(gt.gt_should_escalate || gt.should_escalate)\n    }\n  };\n});"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1200,
+        -624
+      ],
+      "id": "sanitized-node-009",
+      "name": "Combine Prediction and Coherence"
+    },
+    {
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "value": "gpt-4.1",
+          "mode": "list",
+          "cachedResultName": "gpt-4.1"
+        },
+        "options": {
+          "temperature": 0
+        }
+      },
+      "id": "sanitized-node-010",
+      "name": "Judge Chat Model gpt-4.1",
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "typeVersion": 1.2,
+      "position": [
+        928,
+        -416
+      ]
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Manual Trigger": {
+      "main": [
+        [
+          {
+            "node": "Load Ground Truth CSV",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Load Ground Truth CSV": {
+      "main": [
+        [
+          {
+            "node": "Extract Ground Truth Rows",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract Ground Truth Rows": {
+      "main": [
+        [
+          {
+            "node": "Build Cases",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Cases": {
+      "main": [
+        [
+          {
+            "node": "Smoke Test Filter code",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Run Main Pipeline per Shipment": {
+      "main": [
+        [
+          {
+            "node": "Coherence Judge",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Coherence Judge": {
+      "main": [
+        [
+          {
+            "node": "Combine Prediction and Coherence",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Smoke Test Filter code": {
+      "main": [
+        [
+          {
+            "node": "Run Main Pipeline per Shipment",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Combine Prediction and Coherence": {
+      "main": [
+        [
+          {
+            "node": "Evaluate All Metrics",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Judge Chat Model gpt-4.1": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Coherence Judge",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "availableInMCP": false
+  },
+  "tags": []
+}
